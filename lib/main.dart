@@ -1,174 +1,159 @@
+// File: lib/main.dart
 import 'package:flutter/material.dart';
-import 'dart:async'; // Animation aur timer ke liye
+import 'dart:async';
+import 'ai_brain.dart'; // Brain file ko yahan import kiya
 
 void main() {
-  runApp(EdrolAIApp());
+  runApp(const MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: ChatScreen(),
+  ));
 }
 
-class EdrolAIApp extends StatelessWidget {
+class ChatScreen extends StatefulWidget {
+  const ChatScreen({Key? key}) : super(key: key);
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Edrol AI',
-      // Premium Pink Theme Setup
-      theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xFF1A1A1A), // Dark premium background
-        primaryColor: Colors.pinkAccent,
-        colorScheme: ColorScheme.dark(
-          primary: Colors.pinkAccent,
-          secondary: Colors.pink,
-        ),
-      ),
-      home: SplashScreen(), // App shuru hote hi pehle Splash Screen aayegi
-    );
-  }
+  _ChatScreenState createState() => _ChatScreenState();
 }
 
-// ==========================================
-// SPLASH SCREEN (ANIMATED)
-// ==========================================
-class SplashScreen extends StatefulWidget {
-  @override
-  _SplashScreenState createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
+class _ChatScreenState extends State<ChatScreen> {
+  final TextEditingController _messageController = TextEditingController();
+  final List<Map<String, String>> _messages = [];
+  String _currentMode = "Education";
+  
+  // Subscription variables
+  Timer? _subscriptionTimer;
+  bool _isPlanActive = true; 
 
   @override
   void initState() {
     super.initState();
-    
-    // Animation Logic (Fade In)
-    _controller = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    );
-    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
-    _controller.forward();
-
-    // 4 second baad ChatScreen par chala jayega
-    Timer(const Duration(seconds: 4), () {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => ChatScreen()),
-      );
+    // TIMER LOGIC: Har 1 ghante me payment check karega
+    _subscriptionTimer = Timer.periodic(const Duration(hours: 1), (timer) {
+      _checkSubscriptionStatus();
     });
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _subscriptionTimer?.cancel(); // App band hone par timer rok do
     super.dispose();
   }
 
+  // ==========================================
+  // 💰 PAYMENT CHECK LOGIC
+  // ==========================================
+  Future<void> _checkSubscriptionStatus() async {
+    // Yahan teri Vercel API hit hogi: https://aditibot.vercel.app/api/verify-license
+    print("Checking payment status in background...");
+    
+    // Maan le Vercel ne bola expire ho gaya:
+    // setState(() { _isPlanActive = false; });
+  }
+
+  // ==========================================
+  // 🔗 CONNECTING BODY TO BRAIN
+  // ==========================================
+  Future<void> _handleSendMessage(String text) async {
+    if (text.trim().isEmpty) return;
+
+    if (!_isPlanActive) {
+      _showPaymentPopup();
+      return;
+    }
+
+    setState(() { _messages.add({"role": "user", "text": text}); });
+    _messageController.clear();
+
+    // BODY NE BRAIN KO BULAYA (Alag file se)
+    String aiReply = await EdrolBrain.getResponse(text, _currentMode);
+
+    setState(() { _messages.add({"role": "ai", "text": aiReply}); });
+  }
+
+  void _showPaymentPopup() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: const Text("Plan Expired!", style: TextStyle(color: Colors.pinkAccent)),
+        content: const Text("Bhai, ₹29 ka recharge karwa le, Edrol AI offline hai.", style: TextStyle(color: Colors.white)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Pay Now"),
+          )
+        ],
+      )
+    );
+  }
+
+  // ==========================================
+  // 🎨 UI DESIGN (Shortened for preview)
+  // ==========================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F0F), // Deep black background
-      body: Center(
-        child: FadeTransition(
-          opacity: _animation,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Main Logo (31480.png)
-              Image.asset(
-                'assets/images/logo.png', // Tera wo professional logo
-                width: 150,
-                height: 150,
-              ),
-              const SizedBox(height: 20),
-              
-              // App Name
-              const Text(
-                'EDROL AI',
-                style: TextStyle(
-                  color: Colors.pinkAccent,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 10),
-              
-              // Tagline
-              const Text(
-                'All-In-One Open Chat',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 16,
-                  letterSpacing: 1,
-                ),
-              ),
-              
-              const SizedBox(height: 100),
-              
-              // Powered By Section (Neeche)
-              Column(
-                children: [
-                  const Text(
-                    'POWERED BY',
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 10,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // DragoEagle ka chota logo
-                      ClipOval(
-                        child: Image.asset(
-                          'assets/images/logo2.png',
-                          width: 24,
-                          height: 24,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'DRAGOEAGLE',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ],
-                  )
-                ],
-              )
-            ],
+      backgroundColor: const Color(0xFF0F0F0F),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: _currentMode,
+            dropdownColor: const Color(0xFF1A1A1A),
+            icon: const Icon(Icons.keyboard_arrow_down, color: Colors.pinkAccent),
+            items: ["Education", "Girlfriend", "Wife"].map((String mode) {
+              return DropdownMenuItem<String>(
+                value: mode,
+                child: Text(mode, style: const TextStyle(color: Colors.white)),
+              );
+            }).toList(),
+            onChanged: (String? newValue) {
+              setState(() { _currentMode = newValue!; _messages.clear(); });
+            },
           ),
         ),
       ),
-    );
-  }
-}
-
-// ==========================================
-// MAIN CHAT SCREEN (Placeholder)
-// ==========================================
-class ChatScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edrol AI', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.black,
-        elevation: 1,
-        shadowColor: Colors.pinkAccent,
-      ),
-      body: Center(
-        child: Text(
-          "Yahan teri 459MB GGUF wali chat aayegi!",
-          style: TextStyle(color: Colors.white),
-        ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _messages.length,
+              itemBuilder: (context, index) {
+                bool isUser = _messages[index]["role"] == "user";
+                return Align(
+                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    color: isUser ? Colors.pinkAccent.withOpacity(0.2) : const Color(0xFF1A1A1A),
+                    child: Text(_messages[index]["text"]!, style: const TextStyle(color: Colors.white)),
+                  ),
+                );
+              },
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: const Color(0xFF1A1A1A),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(hintText: "Message...", hintStyle: TextStyle(color: Colors.white54)),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.send, color: Colors.pinkAccent),
+                  onPressed: () => _handleSendMessage(_messageController.text),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
