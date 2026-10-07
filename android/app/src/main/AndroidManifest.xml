@@ -1,22 +1,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.ticbull.edrolai"> <!-- Apna package name rakhna -->
+    package="com.ticbull.edrolai">
 
-    <!-- ============================================== -->
-    <!-- ⚠️ REQUIRED PERMISSIONS FOR AI DOWNLOAD & MEDIA -->
-    <!-- ============================================== -->
+    <!-- REQUIRED PERMISSIONS FOR AI DOWNLOAD & MEDIA -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <!-- Modern phones (Android 13+) me photos/videos ke liye -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
 
     <application
-        android:label="Edrol AI"    <!-- Play Store aur Phone me ye Naam dikhega -->
+        android:label="Edrol AI"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:requestLegacyExternalStorage="true" <!-- Storage fail se bachne ke liye -->
+        android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true">
         
         <activity
@@ -42,6 +39,4 @@
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
-    
-    <!-- Camera/Microphone use kar raha ho toh niche add kar lena -->
 </manifest>
