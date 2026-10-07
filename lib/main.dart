@@ -1,7 +1,33 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart'; // 'I' ko small kar diya gaya hai
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+
+// 1. ADDED MAIN FUNCTION (Tera GitHub error yahan solve hoga)
+void main() {
+  runApp(const MyApp());
+}
+
+// 2. ADDED MATERIAL APP & ROUTES
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Edrol AI',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark(),
+      // Sabse pehle Download Screen khulegi
+      initialRoute: '/',
+      routes: {
+        '/': (context) => DownloadModelScreen(),
+        // Download hone ke baad yahan aayega, taaki app crash na ho
+        '/chatScreen': (context) => const DummyChatScreen(), 
+      },
+    );
+  }
+}
 
 class DownloadModelScreen extends StatefulWidget {
   @override
@@ -77,15 +103,17 @@ class _DownloadModelScreenState extends State<DownloadModelScreen> {
     }
 
     // Jab teeno download ho jayein, ya pehle se majood hon
-    setState(() {
-      isDownloading = false;
-      statusText = "All AI Engines Ready!";
-    });
+    if (mounted) {
+      setState(() {
+        isDownloading = false;
+        statusText = "All AI Engines Ready!";
+      });
 
-    Future.delayed(const Duration(seconds: 1), () {
-      // Yahan teri main Chat Screen khulegi
-      Navigator.pushReplacementNamed(context, '/chatScreen'); 
-    });
+      Future.delayed(const Duration(seconds: 1), () {
+        // Yahan teri main Chat Screen khulegi
+        Navigator.pushReplacementNamed(context, '/chatScreen'); 
+      });
+    }
   }
 
   @override
@@ -121,6 +149,24 @@ class _DownloadModelScreenState extends State<DownloadModelScreen> {
               ]
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// 3. DUMMY CHAT SCREEN (Jab tak tu asli screen nahi banata, app crash nahi hogi)
+class DummyChatScreen extends StatelessWidget {
+  const DummyChatScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Edrol AI Chat")),
+      body: const Center(
+        child: Text(
+          "Welcome to Uncensored Edrol AI!",
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
       ),
     );
