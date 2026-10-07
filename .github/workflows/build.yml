@@ -3,12 +3,11 @@ name: Build Edrol AI Release
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch: # Manually start karne ke liye
+  workflow_dispatch:
 
 jobs:
   build:
-    # Android build ke liye ubuntu fast aur free hota hai
-    runs-on: ubuntu-latest 
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
@@ -27,6 +26,10 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Recreate Android Project (Fix v1 Embedding)
+        run: |
+          flutter create --platforms=android .
+
       - name: Install Dependencies
         run: flutter pub get
 
@@ -41,4 +44,4 @@ jobs:
         with:
           name: Edrol-AI-Android-APK
           path: build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 1 # Yahan tera smart logic hai: 1 din baad automatic delete
+          retention-days: 1
