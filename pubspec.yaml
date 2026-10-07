@@ -21,7 +21,7 @@ dev_dependencies:
 # Ye magic code teri app ka logo automatically badal dega
 flutter_launcher_icons:
   android: "ic_launcher"
-  ios: true
+  ios: fals
   image_path: "assets/images/logo1.png"
 
 flutter:
