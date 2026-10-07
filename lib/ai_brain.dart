@@ -24,6 +24,24 @@ class EdrolBrain {
     return "[$mode Mode] Maine tera message padha: $userMessage. (Offline chat engine connected)";
   }
 
+  // ==========================================
+  // 🧠 1.5. HINGLISH TO ENGLISH TRANSLATOR (SECRET MASTERPLAN)
+  // ==========================================
+  static Future<String> _translateToEnglishTags(String hinglishPrompt) async {
+    // Yahan tera Qwen text model background me chalega bina user ko bataye.
+    // Qwen ko hum command denge: "Translate this Hinglish prompt to highly detailed English stable diffusion tags: $hinglishPrompt"
+    
+    print("🔄 AI Background Magic: Translating Hinglish to English Tags...");
+    await Future.delayed(const Duration(seconds: 1)); // Fake AI translation time
+    
+    // Maan le user ne likha: "Gadi ke samne khadi ek sundar ladki"
+    // AI return karega: "masterpiece, best quality, highly detailed, beautiful girl standing in front of luxury car, photorealistic, 8k"
+    
+    String translatedTags = "masterpiece, best quality, highly detailed, photorealistic, realistic lighting, " + hinglishPrompt; // Abhi ke liye dummy logic
+    
+    print("✅ Translated Tags: $translatedTags");
+    return translatedTags;
+  }
 
   // ==========================================
   // 📸 2. PHOTO / VIDEO GENERATION RULES (SECRET MODE)
@@ -51,11 +69,14 @@ class EdrolBrain {
       finalReferenceImage = defaultFacePath;
     }
 
-    print("Generating ${isVideo ? 'Video' : 'Photo'} for Prompt: $prompt");
+    // 🌟 MAGIC HAPPENS HERE: Hinglish prompt ko English Image tags me convert karna 🌟
+    String finalEnglishPrompt = await _translateToEnglishTags(prompt);
+
+    print("Generating ${isVideo ? 'Video' : 'Photo'} for Prompt: $finalEnglishPrompt");
     print("Reference Face Applied: $finalReferenceImage");
 
     // Yahan tera EpicRealism (Photo) ya AnimateLCM (Video) engine chalega
-    // Jisme hum 'finalReferenceImage' ko as a ControlNet/FaceID pass karenge
+    // Jisme hum 'finalReferenceImage' ko as a ControlNet/FaceID pass karenge aur 'finalEnglishPrompt' denge
     await Future.delayed(Duration(seconds: isVideo ? 6 : 3)); // Fake time
     
     return isVideo 
