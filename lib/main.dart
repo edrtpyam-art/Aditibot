@@ -1,14 +1,16 @@
-import 'package:flutter/material.dart'; // 'I' ko small kar diya gaya hai
+import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
-// 1. ADDED MAIN FUNCTION (Tera GitHub error yahan solve hoga)
+// 🌟 YAHAN TERI DONO FILES LINK HO GAYI HAIN 🌟
+import 'ai_brain.dart';
+import 'payment_api.dart';
+
 void main() {
   runApp(const MyApp());
 }
 
-// 2. ADDED MATERIAL APP & ROUTES
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -18,11 +20,9 @@ class MyApp extends StatelessWidget {
       title: 'Edrol AI',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(),
-      // Sabse pehle Download Screen khulegi
       initialRoute: '/',
       routes: {
         '/': (context) => DownloadModelScreen(),
-        // Download hone ke baad yahan aayega, taaki app crash na ho
         '/chatScreen': (context) => const DummyChatScreen(), 
       },
     );
@@ -39,7 +39,6 @@ class _DownloadModelScreenState extends State<DownloadModelScreen> {
   double downloadProgress = 0.0;
   String statusText = "Checking AI Engines...";
 
-  // Teeno models ki list aur unke direct links
   final List<Map<String, String>> aiModels = [
     {
       "fileName": "qwen_chat.gguf",
@@ -72,7 +71,6 @@ class _DownloadModelScreenState extends State<DownloadModelScreen> {
       String savePath = "${appDocDir.path}/${aiModels[i]['fileName']}";
       File modelFile = File(savePath);
 
-      // Agar file pehle se hai toh skip karo
       if (!await modelFile.exists()) {
         setState(() {
           isDownloading = true;
@@ -97,12 +95,11 @@ class _DownloadModelScreenState extends State<DownloadModelScreen> {
             statusText = "Download Failed for ${aiModels[i]['displayName']}. Check Internet.";
             isDownloading = false;
           });
-          return; // Download fail hone par rok do
+          return; 
         }
       }
     }
 
-    // Jab teeno download ho jayein, ya pehle se majood hon
     if (mounted) {
       setState(() {
         isDownloading = false;
@@ -110,7 +107,6 @@ class _DownloadModelScreenState extends State<DownloadModelScreen> {
       });
 
       Future.delayed(const Duration(seconds: 1), () {
-        // Yahan teri main Chat Screen khulegi
         Navigator.pushReplacementNamed(context, '/chatScreen'); 
       });
     }
@@ -155,7 +151,6 @@ class _DownloadModelScreenState extends State<DownloadModelScreen> {
   }
 }
 
-// 3. DUMMY CHAT SCREEN (Jab tak tu asli screen nahi banata, app crash nahi hogi)
 class DummyChatScreen extends StatelessWidget {
   const DummyChatScreen({super.key});
 
