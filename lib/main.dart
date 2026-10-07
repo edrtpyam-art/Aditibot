@@ -1,122 +1,128 @@
-// File: lib/main.dart
 import 'package:flutter/material.dart';
-import 'dart:async';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 
-// Dono alag files ko yahan bulaya gaya hai!
-import 'ai_brain.dart';    // AI ka logic
-import 'payment_api.dart'; // Payment aur Admin ka logic
-
-void main() {
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: ChatScreen(),
-  ));
-}
-
-class ChatScreen extends StatefulWidget {
-  const ChatScreen({Key? key}) : super(key: key);
+class DownloadModelScreen extends StatefulWidget {
   @override
-  _ChatScreenState createState() => _ChatScreenState();
+  _DownloadModelScreenState createState() => _DownloadModelScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
-  final TextEditingController _messageController = TextEditingController();
-  final List<Map<String, String>> _messages = [];
-  String _currentMode = "Education";
-  
-  Timer? _subscriptionTimer;
-  bool _isPlanActive = true; 
-  String _userId = "user_12345"; // Ye phone me login karne wale ka ID hoga
+class _DownloadModelScreenState extends State<DownloadModelScreen> {
+  bool isDownloading = false;
+  double downloadProgress = 0.0;
+  String statusText = "Checking AI Engines...";
+
+  // Teeno models ki list aur unke direct links
+  final List<Map<String, String>> aiModels = [
+    {
+      "fileName": "qwen_chat.gguf",
+      "url": "https://huggingface.co/Edrrt/edrol-ai-engine/resolve/main/qwen1_5-0_5b-chat-q5_k_m.gguf",
+      "displayName": "Chat Engine (459 MB)"
+    },
+    {
+      "fileName": "epicrealism_photo.safetensors",
+      "url": "https://huggingface.co/Edrrt/edrol-ai-engine/resolve/main/epicrealism_naturalSinRC1VAE.safetensors",
+      "displayName": "Photo Engine (2.1 GB)"
+    },
+    {
+      "fileName": "animatelcm_video.ckpt",
+      "url": "https://huggingface.co/wangfuyun/AnimateLCM/resolve/main/AnimateLCM_sd15_t2v.ckpt",
+      "displayName": "Video Engine (1.8 GB)"
+    }
+  ];
 
   @override
   void initState() {
     super.initState();
-    // App start hote hi payment check karo
-    _verifyPaymentLive();
-
-    // Har 10 minute me chup-chaap background me check karega
-    _subscriptionTimer = Timer.periodic(const Duration(minutes: 10), (timer) {
-      _verifyPaymentLive();
-    });
+    _downloadAllModels();
   }
 
-  // ==========================================
-  // 💰 CONNECTION TO PAYMENT API FILE
-  // ==========================================
-  Future<void> _verifyPaymentLive() async {
-    print("Vercel Admin Panel se live status check kar raha hu...");
-    
-    // Yahan humne teri NAYI file (PaymentAPI) ko call kiya!
-    Map<String, dynamic> status = await PaymentAPI.checkUserSubscription(_userId);
-    
-    setState(() {
-      _isPlanActive = status['is_active'] ?? false;
-    });
+  Future<void> _downloadAllModels() async {
+    Directory appDocDir = await getApplicationDocumentsDirectory();
+    Dio dio = Dio();
 
-    // Agar plan expire ho gaya admin panel se, toh app lock ho jayegi
-    if (!_isPlanActive) {
-      _showPaymentPopup(status['message'] ?? "Plan Expired!");
-    }
-  }
+    for (int i = 0; i < aiModels.length; i++) {
+      String savePath = "${appDocDir.path}/${aiModels[i]['fileName']}";
+      File modelFile = File(savePath);
 
-  @override
-  void dispose() {
-    _subscriptionTimer?.cancel();
-    super.dispose();
-  }
+      // Agar file pehle se hai toh skip karo
+      if (!await modelFile.exists()) {
+        setState(() {
+          isDownloading = true;
+          statusText = "Downloading ${aiModels[i]['displayName']}...\n(One-time setup)";
+          downloadProgress = 0.0;
+        });
 
-  // ==========================================
-  // 🧠 CHAT LOGIC (Connected to ai_brain.dart)
-  // ==========================================
-  Future<void> _handleSendMessage(String text) async {
-    if (text.trim().isEmpty) return;
-
-    // Msg bhejne se pehle check karo plan active hai ya nahi
-    if (!_isPlanActive) {
-      _showPaymentPopup("Bhai plan expire ho gaya hai, renew karwa!");
-      return;
-    }
-
-    setState(() { _messages.add({"role": "user", "text": text}); });
-    _messageController.clear();
-
-    // AI file ko bulaya
-    String aiReply = await EdrolBrain.getResponse(text, _currentMode);
-
-    setState(() { _messages.add({"role": "ai", "text": aiReply}); });
-  }
-
-  void _showPaymentPopup(String message) {
-    showDialog(
-      barrierDismissible: false, // User bina pay kiye back nahi ja sakta
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text("Subscription Required", style: TextStyle(color: Colors.pinkAccent)),
-        content: Text(message, style: const TextStyle(color: Colors.white)),
-        actions: [
-          TextButton(
-            onPressed: () {
-              // Yahan Live pricing lane ka code chalega: PaymentAPI.getLivePlans()
-              print("Live plans dikhao");
+        try {
+          await dio.download(
+            aiModels[i]['url']!,
+            savePath,
+            onReceiveProgress: (received, total) {
+              if (total != -1) {
+                setState(() {
+                  downloadProgress = received / total;
+                });
+              }
             },
-            child: const Text("View Plans & Pay"),
-          )
-        ],
-      )
-    );
+          );
+        } catch (e) {
+          setState(() {
+            statusText = "Download Failed for ${aiModels[i]['displayName']}. Check Internet.";
+            isDownloading = false;
+          });
+          return; // Download fail hone par rok do
+        }
+      }
+    }
+
+    // Jab teeno download ho jayein, ya pehle se majood hon
+    setState(() {
+      isDownloading = false;
+      statusText = "All AI Engines Ready!";
+    });
+
+    Future.delayed(const Duration(seconds: 1), () {
+      // Yahan teri main Chat Screen khulegi
+      Navigator.pushReplacementNamed(context, '/chatScreen'); 
+    });
   }
 
-  // ... (Baaki wahi same Chat UI jo pehle diya tha) ...
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F0F),
-      appBar: AppBar(
-        title: Text("Edrol AI", style: TextStyle(color: Colors.pinkAccent)),
-        backgroundColor: Colors.black,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.memory, size: 80, color: Colors.pinkAccent),
+              const SizedBox(height: 30),
+              Text(
+                statusText,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              if (isDownloading) ...[
+                LinearProgressIndicator(
+                  value: downloadProgress,
+                  backgroundColor: Colors.grey[800],
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.pinkAccent),
+                  minHeight: 8,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  "${(downloadProgress * 100).toStringAsFixed(1)}%",
+                  style: const TextStyle(color: Colors.white70),
+                )
+              ]
+            ],
+          ),
+        ),
       ),
-      body: Center(child: Text("Chat UI Here", style: TextStyle(color: Colors.white))),
     );
   }
 }
