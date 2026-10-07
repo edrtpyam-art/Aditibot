@@ -1,5 +1,32 @@
+name: edrol_ai
+description: Advanced Premium AI Assistant
+publish_to: 'none'
+version: 1.0.1+2 # Ye version Play Store me update ke liye zaroori hai
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  dio: ^5.3.3             # Downloading models ke liye
+  path_provider: ^2.1.1   # Phone me save karne ke liye
+  # (Agar tere aur koi packages hain to yahan add rakhna)
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_launcher_icons: ^0.13.1 # App ka professional logo set karne ke liye
+
+# Ye magic code teri app ka logo automatically badal dega
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  image_path: "assets/images/logo.png"
+
 flutter:
   uses-material-design: true
   assets:
     - assets/images/logo.png
     - assets/images/logo2.png
+    - assets/images/face.png
