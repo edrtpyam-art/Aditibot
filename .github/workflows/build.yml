@@ -26,19 +26,14 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Recreate Android Project (Fix v1 Embedding)
-        run: |
-          flutter create --platforms=android .
-
       - name: Install Dependencies
         run: flutter pub get
 
       - name: Generate App Icon
         run: dart run flutter_launcher_icons
 
-      # 🔴 MAGIC FIX: Obfuscation added to prevent Modding/Hacking
-      - name: Build Android APK (Secured & Obfuscated)
-        run: flutter build apk --release --obfuscate --split-debug-info=build/app/outputs/symbols
+      - name: Build Android APK
+        run: flutter build apk --release
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
