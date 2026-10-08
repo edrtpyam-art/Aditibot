@@ -15,7 +15,9 @@ dependencies:
   shared_preferences: ^2.2.2   # 👈 Offline 48-hour Timer ke liye
   url_launcher: ^6.2.1         # 👈 Cosmofeed Payment Link kholne ke liye
   firebase_core: ^2.32.0       # 👈 Edrolai Firebase Connect karne ke liye
-  firebase_database: ^10.5.0   # 👈 Live Brain aur Rules Update ke liye
+  firebase_database: ^10.5.0 
+  image_picker: ^1.1.2  
+  # 👈 Live Brain aur Rules Update ke liye
 
 dev_dependencies:
   flutter_test:
