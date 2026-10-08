@@ -49,7 +49,9 @@ class EdrolBrain {
   // 📸 2. PHOTO / VIDEO GENERATION RULES (SECRET MODE)
   // ==========================================
   
-  static String defaultFacePath = "/storage/emulated/0/Download/face.png"; 
+  // 🔴 NAYA FIX: Ab path by default empty rahega. 
+  // Tera naya main.dart Firebase se Live Face download karega aur is path ko automatically update kar dega!
+  static String defaultFacePath = ""; 
 
   static Future<String> generateMedia(String prompt, String? userUploadedImagePath, bool isVideo) async {
     
@@ -61,8 +63,9 @@ class EdrolBrain {
       finalReferenceImage = userUploadedImagePath; 
       prompt = prompt.replaceAll("@&sxrdmodeon", "").trim(); 
     } else {
-      print("🔒 DEFAULT MODE: Using official face.png");
-      finalReferenceImage = defaultFacePath;
+      print("🔒 DEFAULT MODE: Using official Admin Face.");
+      // Agar Firebase se photo nahi aayi hai aur path khali hai, toh crash se bachne ka check
+      finalReferenceImage = defaultFacePath.isNotEmpty ? defaultFacePath : "face_not_downloaded_yet";
     }
 
     String finalEnglishPrompt = await _translateToEnglishTags(prompt);
