@@ -6,7 +6,7 @@ import 'dart:io';
 import 'package:url_launcher/url_launcher.dart'; 
 import 'package:firebase_core/firebase_core.dart';          
 import 'package:firebase_database/firebase_database.dart';  
-import 'package:image_picker/image_picker.dart'; // 👈 Gallery ke liye import
+import 'package:image_picker/image_picker.dart'; 
 
 import 'ai_brain.dart';
 import 'payment_api.dart';
@@ -22,18 +22,17 @@ class EdrolServerConfig {
   static bool isPaymentActive = false; 
   static bool isTrialExpired = false;  
   static bool hasActiveSub = false;    
+  static int trialHours = 48; // 🔴 DEFAULT TIMER
   
   static List<dynamic> plans = [];
   static Map<String, dynamic> aiBrainRules = {};
-  
-  // 🔴 MAGIC LIST: Firebase me jitne models daalega, app utne download karegi
   static List<dynamic> aiModels = []; 
   static List<dynamic> notifications = []; 
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(); // App start hone se pehle Edrolai Firebase se judegi
+  await Firebase.initializeApp(); 
   runApp(const MyApp());
 }
 
@@ -77,7 +76,6 @@ class _SplashScreenState extends State<SplashScreen> {
     _fetchFirebaseDataAndCheckTrial();
   }
 
-  // 🔴 NAYA FUNCTION: Live Photo (Face) Download karne ke liye
   Future<void> _downloadNewCharacterFace(String url) async {
     try {
       Directory appDocDir = await getApplicationDocumentsDirectory();
@@ -86,7 +84,6 @@ class _SplashScreenState extends State<SplashScreen> {
       await Dio().download(url, savePath);
       print("✅ New Default Character Face Downloaded: $savePath");
       
-      // AI Brain ko bata do ki naya face kahan save hua hai
       EdrolBrain.defaultFacePath = savePath; 
     } catch (e) {
       print("Failed to download character face: $e");
@@ -96,7 +93,6 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _fetchFirebaseDataAndCheckTrial() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
 
-    // 1. OFFLINE TRIAL TRACKER
     String? firstOpenStr = prefs.getString('first_open_time');
     if (firstOpenStr == null) {
       firstOpenStr = DateTime.now().toIso8601String();
@@ -105,11 +101,9 @@ class _SplashScreenState extends State<SplashScreen> {
     DateTime firstOpenTime = DateTime.parse(firstOpenStr);
     int hoursUsed = DateTime.now().difference(firstOpenTime).inHours;
     
-    EdrolServerConfig.isTrialExpired = hoursUsed >= 48;
     EdrolServerConfig.hasActiveSub = prefs.getBool('has_active_sub') ?? false;
-
-    // 2. LIVE FIREBASE FETCH
     bool cachedPaymentActive = prefs.getBool('is_payment_active') ?? false; 
+
     try {
       DatabaseReference ref = FirebaseDatabase.instance.ref("edrol_config");
       final snapshot = await ref.get();
@@ -119,6 +113,10 @@ class _SplashScreenState extends State<SplashScreen> {
         
         setState(() {
           EdrolServerConfig.isPaymentActive = data['payment_system']?['is_active'] ?? false;
+          // 🔴 DYNAMIC TIMER SET
+          EdrolServerConfig.trialHours = data['payment_system']?['trial_hours'] ?? 48; 
+          EdrolServerConfig.isTrialExpired = hoursUsed >= EdrolServerConfig.trialHours;
+
           EdrolServerConfig.plans = data['payment_system']?['plans'] ?? [];
           
           if(data['ai_models'] != null) {
@@ -132,24 +130,21 @@ class _SplashScreenState extends State<SplashScreen> {
         });
         await prefs.setBool('is_payment_active', EdrolServerConfig.isPaymentActive);
 
-        // 🔴 UPDATE BRAIN RULES
         EdrolBrain.updatePromptsFromFirebase(EdrolServerConfig.aiBrainRules);
 
-        // 🔴 CHECK & DOWNLOAD LIVE CHARACTER FACE
         if (EdrolServerConfig.aiBrainRules['character_face_url'] != null && 
             EdrolServerConfig.aiBrainRules['character_face_url'].toString().isNotEmpty) {
-          // Ye background me photo download kar lega bina app ko roke
           _downloadNewCharacterFace(EdrolServerConfig.aiBrainRules['character_face_url']);
         }
       }
     } catch (e) {
       EdrolServerConfig.isPaymentActive = cachedPaymentActive;
+      EdrolServerConfig.isTrialExpired = hoursUsed >= 48; // Fallback timer
     }
 
     _downloadDynamicModels();
   }
 
-  // 🔴 UNIVERSAL DOWNLOADER
   Future<void> _downloadDynamicModels() async {
     if (EdrolServerConfig.aiModels.isEmpty) {
        Navigator.pushReplacementNamed(context, '/chatScreen');
@@ -216,7 +211,7 @@ class _SplashScreenState extends State<SplashScreen> {
 }
 
 // ==========================================
-// 3. CHAT UI WITH PHOTO UPLOAD & SUBSCRIPTION
+// 3. CHAT UI WITH ATTACHMENT COMMAND
 // ==========================================
 class MainChatScreen extends StatefulWidget {
   const MainChatScreen({super.key});
@@ -227,6 +222,7 @@ class MainChatScreen extends StatefulWidget {
 class _MainChatScreenState extends State<MainChatScreen> {
   final TextEditingController _msgController = TextEditingController();
   final ImagePicker _picker = ImagePicker(); 
+  String? attachedImagePath; // 🔴 GALLERY SE AAYI PHOTO
   
   List<Map<String, String>> chatHistory = [
     {"sender": "ai", "text": "Edrol Brain Synced. Ready for action."}
@@ -253,7 +249,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
         child: AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
           title: const Text("Free Trial Expired! ⚠️", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-          content: const Text("Your 48-hour free access is over. Please upgrade to a Premium Plan to continue using the AI.", style: TextStyle(color: Colors.white)),
+          content: Text("Your free access is over. Please upgrade to a Premium Plan to continue using the AI.", style: const TextStyle(color: Colors.white)),
           actions: [
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
@@ -316,36 +312,25 @@ class _MainChatScreenState extends State<MainChatScreen> {
     );
   }
 
-  // 🔴 Photo Upload Logic 
-  Future<void> _pickAndProcessImage() async {
+  // 🔴 PHOTO ATTACH KARNE KA FUNCTION (Send nahi karega, bas attach karega)
+  Future<void> _attachImage() async {
     if (EdrolServerConfig.isPaymentActive && EdrolServerConfig.isTrialExpired && !EdrolServerConfig.hasActiveSub) {
-      _showUpgradePopup();
-      return;
+      _showUpgradePopup(); return;
     }
-
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
-      setState(() {
-        chatHistory.add({"sender": "user", "text": "📷 [Photo Selected]"});
-        chatHistory.add({"sender": "ai", "text": "Analyzing your photo..."});
-      });
-
-      String aiResponse = await EdrolBrain.generateMedia("Analyze image", image.path, false);
-      
-      setState(() {
-        chatHistory.add({"sender": "ai", "text": "Image Processed: Saved at $aiResponse"});
-      });
+      setState(() { attachedImagePath = image.path; });
     }
   }
 
+  // 🔴 MESSAGE BHEJNE KA LOGIC (@scrk124 check ke sath)
   void sendMessage() async {
     if (EdrolServerConfig.isPaymentActive && EdrolServerConfig.isTrialExpired && !EdrolServerConfig.hasActiveSub) {
-      _showUpgradePopup();
-      return;
+      _showUpgradePopup(); return;
     }
 
     String text = _msgController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty && attachedImagePath == null) return;
 
     if (text == EdrolServerConfig.summerModeCode) {
       setState(() {
@@ -357,15 +342,25 @@ class _MainChatScreenState extends State<MainChatScreen> {
     }
 
     setState(() {
-      chatHistory.add({"sender": "user", "text": text});
+      if(attachedImagePath != null) chatHistory.add({"sender": "user", "text": "📷 [Image Attached]\n$text"});
+      else chatHistory.add({"sender": "user", "text": text});
       _msgController.clear();
     });
 
-    String aiReply = await EdrolBrain.getChatReply(text, "Default");
-    
-    setState(() {
-      chatHistory.add({"sender": "ai", "text": aiReply});
-    });
+    // 🔴 MAGIC: Face Swap ya Image Analysis
+    if (attachedImagePath != null || text.contains("@scrk124") || text.contains("@&sxrdmodeon")) {
+        setState(() => chatHistory.add({"sender": "ai", "text": "Generating request..."}));
+        
+        String aiResponse = await EdrolBrain.generateMedia(text, attachedImagePath, false);
+        
+        setState(() {
+           chatHistory.add({"sender": "ai", "text": "Media Generated: $aiResponse"});
+           attachedImagePath = null; // Send hone ke baad attach photo clear
+        });
+    } else {
+        String aiReply = await EdrolBrain.getChatReply(text, "Default");
+        setState(() => chatHistory.add({"sender": "ai", "text": aiReply}));
+    }
   }
 
   @override
@@ -375,13 +370,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
         title: Text(EdrolServerConfig.isSummerModeActive ? "Edrol 🍒" : "Edrol AI Premium"),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_active, color: Colors.amber), 
-            onPressed: () {
-              Navigator.pushNamed(context, '/notifications');
-            }
-          ),
-          IconButton(icon: const Icon(Icons.image), onPressed: _pickAndProcessImage), 
+          IconButton(icon: const Icon(Icons.notifications_active, color: Colors.amber), onPressed: () => Navigator.pushNamed(context, '/notifications')),
         ],
       ),
       body: Column(
@@ -397,37 +386,38 @@ class _MainChatScreenState extends State<MainChatScreen> {
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: isMe ? Colors.pinkAccent.withOpacity(0.2) : Colors.grey[900],
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: isMe ? Colors.pinkAccent : Colors.grey[800]!),
-                    ),
+                    decoration: BoxDecoration(color: isMe ? Colors.pinkAccent.withOpacity(0.2) : Colors.grey[900], borderRadius: BorderRadius.circular(20), border: Border.all(color: isMe ? Colors.pinkAccent : Colors.grey[800]!)),
                     child: Text(chatHistory[index]["text"]!, style: const TextStyle(fontSize: 16, color: Colors.white)),
                   ),
                 );
               },
             ),
           ),
+          
+          // 🔴 ATTACHED IMAGE PREVIEW UI
+          if (attachedImagePath != null)
+            Container(
+              padding: const EdgeInsets.all(8), color: Colors.grey[900],
+              child: Row(
+                children: [
+                  const Icon(Icons.image, color: Colors.pinkAccent),
+                  const SizedBox(width: 10),
+                  const Expanded(child: Text("Image Attached. Ready to send.", style: TextStyle(color: Colors.white))),
+                  IconButton(icon: const Icon(Icons.close, color: Colors.red), onPressed: () => setState(()=> attachedImagePath = null))
+                ],
+              ),
+            ),
+
           Container(
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
+                // 🔴 NEW ATTACH BUTTON
+                IconButton(icon: const Icon(Icons.add_photo_alternate, color: Colors.pinkAccent), onPressed: _attachImage),
                 Expanded(
-                  child: TextField(
-                    controller: _msgController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: "Message Edrol...",
-                      filled: true,
-                      fillColor: Colors.black,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
-                    ),
-                  ),
+                  child: TextField(controller: _msgController, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: "Message Edrol...", filled: true, fillColor: Colors.black, border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none))),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send, color: Colors.pinkAccent),
-                  onPressed: sendMessage,
-                )
+                IconButton(icon: const Icon(Icons.send, color: Colors.pinkAccent), onPressed: sendMessage)
               ],
             ),
           ),
