@@ -25,13 +25,15 @@ class EdrolServerConfig {
   
   static List<dynamic> plans = [];
   static Map<String, dynamic> aiBrainRules = {};
+  
+  // 🔴 MAGIC LIST: Firebase me jitne models daalega, app utne download karegi
   static List<dynamic> aiModels = []; 
   static List<dynamic> notifications = []; 
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(); 
+  await Firebase.initializeApp(); // App start hone se pehle Edrolai Firebase se judegi
   runApp(const MyApp());
 }
 
@@ -75,9 +77,26 @@ class _SplashScreenState extends State<SplashScreen> {
     _fetchFirebaseDataAndCheckTrial();
   }
 
+  // 🔴 NAYA FUNCTION: Live Photo (Face) Download karne ke liye
+  Future<void> _downloadNewCharacterFace(String url) async {
+    try {
+      Directory appDocDir = await getApplicationDocumentsDirectory();
+      String savePath = "${appDocDir.path}/face.png"; 
+      
+      await Dio().download(url, savePath);
+      print("✅ New Default Character Face Downloaded: $savePath");
+      
+      // AI Brain ko bata do ki naya face kahan save hua hai
+      EdrolBrain.defaultFacePath = savePath; 
+    } catch (e) {
+      print("Failed to download character face: $e");
+    }
+  }
+
   Future<void> _fetchFirebaseDataAndCheckTrial() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
 
+    // 1. OFFLINE TRIAL TRACKER
     String? firstOpenStr = prefs.getString('first_open_time');
     if (firstOpenStr == null) {
       firstOpenStr = DateTime.now().toIso8601String();
@@ -89,6 +108,7 @@ class _SplashScreenState extends State<SplashScreen> {
     EdrolServerConfig.isTrialExpired = hoursUsed >= 48;
     EdrolServerConfig.hasActiveSub = prefs.getBool('has_active_sub') ?? false;
 
+    // 2. LIVE FIREBASE FETCH
     bool cachedPaymentActive = prefs.getBool('is_payment_active') ?? false; 
     try {
       DatabaseReference ref = FirebaseDatabase.instance.ref("edrol_config");
@@ -112,8 +132,15 @@ class _SplashScreenState extends State<SplashScreen> {
         });
         await prefs.setBool('is_payment_active', EdrolServerConfig.isPaymentActive);
 
-        // 🔴 MAJOR FIX 1: Firebase rules seedha AI Brain me feed ho gaye!
+        // 🔴 UPDATE BRAIN RULES
         EdrolBrain.updatePromptsFromFirebase(EdrolServerConfig.aiBrainRules);
+
+        // 🔴 CHECK & DOWNLOAD LIVE CHARACTER FACE
+        if (EdrolServerConfig.aiBrainRules['character_face_url'] != null && 
+            EdrolServerConfig.aiBrainRules['character_face_url'].toString().isNotEmpty) {
+          // Ye background me photo download kar lega bina app ko roke
+          _downloadNewCharacterFace(EdrolServerConfig.aiBrainRules['character_face_url']);
+        }
       }
     } catch (e) {
       EdrolServerConfig.isPaymentActive = cachedPaymentActive;
@@ -122,6 +149,7 @@ class _SplashScreenState extends State<SplashScreen> {
     _downloadDynamicModels();
   }
 
+  // 🔴 UNIVERSAL DOWNLOADER
   Future<void> _downloadDynamicModels() async {
     if (EdrolServerConfig.aiModels.isEmpty) {
        Navigator.pushReplacementNamed(context, '/chatScreen');
@@ -198,7 +226,7 @@ class MainChatScreen extends StatefulWidget {
 
 class _MainChatScreenState extends State<MainChatScreen> {
   final TextEditingController _msgController = TextEditingController();
-  final ImagePicker _picker = ImagePicker(); // 🔴 Gallery Picker Tool
+  final ImagePicker _picker = ImagePicker(); 
   
   List<Map<String, String>> chatHistory = [
     {"sender": "ai", "text": "Edrol Brain Synced. Ready for action."}
@@ -288,9 +316,8 @@ class _MainChatScreenState extends State<MainChatScreen> {
     );
   }
 
-  // 🔴 MAJOR FIX 2: Photo Upload Logic 
+  // 🔴 Photo Upload Logic 
   Future<void> _pickAndProcessImage() async {
-    // Payment Check before uploading
     if (EdrolServerConfig.isPaymentActive && EdrolServerConfig.isTrialExpired && !EdrolServerConfig.hasActiveSub) {
       _showUpgradePopup();
       return;
@@ -303,7 +330,6 @@ class _MainChatScreenState extends State<MainChatScreen> {
         chatHistory.add({"sender": "ai", "text": "Analyzing your photo..."});
       });
 
-      // Photo ko seedha AI Brain me process hone bhej diya
       String aiResponse = await EdrolBrain.generateMedia("Analyze image", image.path, false);
       
       setState(() {
@@ -335,7 +361,6 @@ class _MainChatScreenState extends State<MainChatScreen> {
       _msgController.clear();
     });
 
-    // Yahan active chat rule se AI reply aayega
     String aiReply = await EdrolBrain.getChatReply(text, "Default");
     
     setState(() {
@@ -356,7 +381,6 @@ class _MainChatScreenState extends State<MainChatScreen> {
               Navigator.pushNamed(context, '/notifications');
             }
           ),
-          // 🔴 PHOTO ICON AB GALLERY KHOLEGA!
           IconButton(icon: const Icon(Icons.image), onPressed: _pickAndProcessImage), 
         ],
       ),
