@@ -43,6 +43,10 @@ jobs:
       - name: Generate App Icon
         run: dart run flutter_launcher_icons
 
+      # 🔴 YE LINE ANDROID EMBEDDING KE LAFDE KO KHATAM KAREGI
+      - name: Recreate Android Project
+        run: flutter create --platforms=android --org com.dragoeagle.edrolai .
+
       - name: Build Android APK
         run: flutter build apk --release
 
