@@ -1,39 +1,49 @@
 // File: lib/payment_api.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PaymentAPI {
-  // Tera Vercel backend URL (Jahan tera admin panel hoga)
-  static const String serverUrl = "https://aditibot.vercel.app/api";
+  // 🔴 Tera naya Firebase Database URL (Vercel hata diya)
+  static const String dbUrl = "https://edro-e45a8-default-rtdb.firebaseio.com/edrol_config/payment_system.json";
 
-  // 1. Live Plan Check Karne Ka Function
-  static Future<Map<String, dynamic>> checkUserSubscription(String userId) async {
+  // 1. Live Plan Check Karne Ka Function (Local Sub + Firebase Status)
+  static Future<Map<String, dynamic>> checkUserSubscription() async {
     try {
-      // App tere Vercel server se puchegi ki is user ka kya status hai
-      final response = await http.post(
-        Uri.parse("$serverUrl/verify-license"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"user_id": userId}),
-      );
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      bool hasActiveSub = prefs.getBool('has_active_sub') ?? false;
 
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body); 
-        // Ye return karega: { "is_active": true, "plan": "Wife Mode", "expiry": "1 hour left" }
-      } else {
-        return {"is_active": false, "message": "Server Down!"};
+      // Agar user ne pay kar diya hai (Premium member hai)
+      if (hasActiveSub) {
+        return {"is_active": true, "message": "Premium Unlocked"};
       }
+
+      // Varna Firebase se check karo ki Admin ne payment ON rakhi hai ya OFF
+      final response = await http.get(Uri.parse(dbUrl));
+      if (response.statusCode == 200) {
+        var data = jsonDecode(response.body);
+        bool isSystemActive = data['is_active'] ?? false;
+        
+        return {
+          "is_active": isSystemActive, // Agar false hai, matlab app free chalne do
+          "message": isSystemActive ? "Trial Expired! Upgrade needed." : "Free Mode Active"
+        };
+      }
+      return {"is_active": false, "message": "Server error!"};
     } catch (e) {
       return {"is_active": false, "message": "Internet Error"};
     }
   }
 
-  // 2. Live Pricing List Lane Ka Function (Taaki tu admin panel se price badal sake)
+  // 2. Live Pricing List Lane Ka Function (Direct Firebase se)
   static Future<List<dynamic>> getLivePlans() async {
     try {
-      final response = await http.get(Uri.parse("$serverUrl/get-plans"));
+      final response = await http.get(Uri.parse(dbUrl));
       if (response.statusCode == 200) {
-        return jsonDecode(response.body)['plans'];
-        // Ye Vercel se list layega: [ {name: "GF Mode", price: 29, duration: "1 Day"} ]
+        var data = jsonDecode(response.body);
+        if (data != null && data['plans'] != null) {
+          return data['plans']; // Ye Firebase se direct [ {name: "PRO", price: "₹499"} ] return karega
+        }
       }
       return [];
     } catch (e) {
