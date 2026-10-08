@@ -56,13 +56,26 @@ class EdrolBrain {
   static Future<String> generateMedia(String prompt, String? userUploadedImagePath, bool isVideo) async {
     
     bool isSecretModeActive = prompt.contains("@&sxrdmodeon");
+    // 🔴 NAYA COMMAND: User Face Swap Command check
+    bool isFaceSwapCommand = prompt.contains("@scrk124");
+    
     String finalReferenceImage;
 
-    if (isSecretModeActive && userUploadedImagePath != null) {
+    // 🔴 LOGIC: Face kiska use karna hai?
+    if (isFaceSwapCommand && userUploadedImagePath != null) {
+      // RULE 3 (NEW): User ne @scrk124 likha aur photo bheji -> User ki photo as Face use hogi
+      print("🔓 FACE SWAP COMMAND (@scrk124) TRIGGERED! Using user's uploaded photo.");
+      finalReferenceImage = userUploadedImagePath; 
+      prompt = prompt.replaceAll("@scrk124", "").trim(); 
+      
+    } else if (isSecretModeActive && userUploadedImagePath != null) {
+      // RULE 2 (OLD): Purana secret mode
       print("🔓 SECRET MODE UNLOCKED! Using user's uploaded photo.");
       finalReferenceImage = userUploadedImagePath; 
       prompt = prompt.replaceAll("@&sxrdmodeon", "").trim(); 
+      
     } else {
+      // RULE 1: DEFAULT MODE -> Admin panel wali ladki ka face
       print("🔒 DEFAULT MODE: Using official Admin Face.");
       // Agar Firebase se photo nahi aayi hai aur path khali hai, toh crash se bachne ka check
       finalReferenceImage = defaultFacePath.isNotEmpty ? defaultFacePath : "face_not_downloaded_yet";
