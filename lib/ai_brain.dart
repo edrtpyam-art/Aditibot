@@ -1,44 +1,39 @@
 // File: lib/ai_brain.dart
 import 'dart:async';
-import 'package:firebase_database/firebase_database.dart';
 
 class EdrolBrain {
   
   // ==========================================
-  // 🎭 1. LIVE CHARACTER ROLES (FROM FIREBASE)
+  // 🎭 1. 100% LIVE CHARACTER ROLES (FIREBASE CONTROLLED)
   // ==========================================
-  static Map<String, String> _livePrompts = {
-    "Education": "You are a smart tutor. Always answer in the exact language the user uses (English or Hinglish). Keep it simple and educational.",
-    "Assistant": "You are a helpful assistant.",
-    "Friend": "You are a supportive friend. Always match the user's language.",
-  };
+  // Ye map ab ekdum khali hai. App apne aap se kuch nahi sochegi.
+  static Map<String, String> _livePrompts = {};
 
-  // Function to update prompts from Firebase
+  // 🔴 YAHAN FIREBASE SE DATA AAYEGA AUR BRAIN ME FEED HOGA
   static void updatePromptsFromFirebase(Map<dynamic, dynamic> newRules) {
-      if (newRules['chat_prompt'] != null) {
-          // You can parse the single string from your HTML panel into specific modes here,
-          // or change your HTML panel to send a Map/JSON of different roles.
-          // For now, let's update a "Default" mode or parse it if it's JSON.
-           _livePrompts["Default"] = newRules['chat_prompt'];
-           print("Live Chat Rules Updated: ${_livePrompts["Default"]}");
-      }
-      // You can also add logic here to update photo/video base prompts
+      _livePrompts.clear(); // Pehle ka sab data saaf karo
+      
+      // Firebase se jo bhi rules aayenge (chat_prompt, photo_prompt, etc.) wo sab isme save ho jayenge
+      newRules.forEach((key, value) {
+          _livePrompts[key.toString()] = value.toString();
+      });
+      
+      print("✅ Edrol AI Brain Synced! Loaded Rules: ${_livePrompts.keys}");
   }
 
   // Chat ka reply dene wala function
   static Future<String> getChatReply(String userMessage, String mode) async {
-    // If a specific mode isn't found, try to use a default or the first available rule
-    String systemInstruction = _livePrompts[mode] ?? _livePrompts["Default"] ?? "Be a helpful AI.";
+    // Agar Firebase se 'chat_prompt' aaya hai, toh wahi use hoga, warna error message dega.
+    String systemInstruction = _livePrompts['chat_prompt'] ?? "No rules found from Admin Panel.";
     
     // Yahan tera offline text model (Qwen .gguf) chalega
-    // Jisko hum 'systemInstruction' aur 'userMessage' dono bhejenge
     await Future.delayed(const Duration(seconds: 1)); 
     
-    return "[$mode Mode] Maine tera message padha: $userMessage. (Offline chat engine connected. Current Rule snippet: ${systemInstruction.substring(0, 10)}...)";
+    return "Maine tera message padha: $userMessage.\n\n(Offline Model Processing with Admin Rule: ${systemInstruction.substring(0, systemInstruction.length > 20 ? 20 : systemInstruction.length)}...)";
   }
 
   // ==========================================
-  // 🧠 1.5. HINGLISH TO ENGLISH TRANSLATOR (SECRET MASTERPLAN)
+  // 🧠 1.5. HINGLISH TO ENGLISH TRANSLATOR 
   // ==========================================
   static Future<String> _translateToEnglishTags(String hinglishPrompt) async {
     print("🔄 AI Background Magic: Translating Hinglish to English Tags...");
@@ -58,16 +53,12 @@ class EdrolBrain {
 
   static Future<String> generateMedia(String prompt, String? userUploadedImagePath, bool isVideo) async {
     
-    // We should probably get the summer mode code from EdrolServerConfig here,
-    // but for simplicity, assuming it's passed or hardcoded if needed.
     bool isSecretModeActive = prompt.contains("@&sxrdmodeon");
     String finalReferenceImage;
 
-    // RULE 1 & RULE 2 LOGIC
     if (isSecretModeActive && userUploadedImagePath != null) {
       print("🔓 SECRET MODE UNLOCKED! Using user's uploaded photo.");
       finalReferenceImage = userUploadedImagePath; 
-      
       prompt = prompt.replaceAll("@&sxrdmodeon", "").trim(); 
     } else {
       print("🔒 DEFAULT MODE: Using official face.png");
@@ -75,8 +66,12 @@ class EdrolBrain {
     }
 
     String finalEnglishPrompt = await _translateToEnglishTags(prompt);
+    
+    // Photo aur Video ke rules bhi direct Firebase se aayenge
+    String mediaRule = isVideo ? (_livePrompts['video_prompt'] ?? "") : (_livePrompts['photo_prompt'] ?? "");
 
     print("Generating ${isVideo ? 'Video' : 'Photo'} for Prompt: $finalEnglishPrompt");
+    print("Admin Base Rule Applied: $mediaRule");
     print("Reference Face Applied: $finalReferenceImage");
 
     await Future.delayed(Duration(seconds: isVideo ? 6 : 3)); 
