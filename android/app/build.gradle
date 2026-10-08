@@ -25,7 +25,7 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace "com.edrol.ai" // <-- Agar tera package name kuch aur hai toh yahan badal dena
+    namespace "com.dragoeagle.edrolai" // <-- Agar tera package name kuch aur hai toh yahan badal dena
     compileSdkVersion flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
@@ -43,7 +43,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.edrol.ai" // <-- Yahan bhi same package name aayega
+        applicationId "com.dragoeagle.edrolai" // <-- Yahan bhi same package name aayega
         minSdkVersion 23
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
