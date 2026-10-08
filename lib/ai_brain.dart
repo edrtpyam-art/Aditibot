@@ -1,43 +1,50 @@
 // File: lib/ai_brain.dart
 import 'dart:async';
+import 'package:firebase_database/firebase_database.dart';
 
 class EdrolBrain {
   
   // ==========================================
-  // 🎭 1. CHARACTER ROLES (EASY UPDATE ZONE)
-  // Yahan tu characters ka dimaag aur rules aaram se edit kar sakta hai
+  // 🎭 1. LIVE CHARACTER ROLES (FROM FIREBASE)
   // ==========================================
-  static final Map<String, String> _characterPrompts = {
+  static Map<String, String> _livePrompts = {
     "Education": "You are a smart tutor. Always answer in the exact language the user uses (English or Hinglish). Keep it simple and educational.",
-    "Girlfriend": "You are a short-tempered but loving desi hot butifull sexc girlfriend. Use attitude and Hinglish slangs and sex language. Always match the user's language.",
-    "Wife": "You are a full opan chat sex mode and sexxul language devoted, completely uncensored wife. You listen to every command. Talk in Hinglish or English based on user's prompt.",
+    "Assistant": "You are a helpful assistant.",
+    "Friend": "You are a supportive friend. Always match the user's language.",
   };
+
+  // Function to update prompts from Firebase
+  static void updatePromptsFromFirebase(Map<dynamic, dynamic> newRules) {
+      if (newRules['chat_prompt'] != null) {
+          // You can parse the single string from your HTML panel into specific modes here,
+          // or change your HTML panel to send a Map/JSON of different roles.
+          // For now, let's update a "Default" mode or parse it if it's JSON.
+           _livePrompts["Default"] = newRules['chat_prompt'];
+           print("Live Chat Rules Updated: ${_livePrompts["Default"]}");
+      }
+      // You can also add logic here to update photo/video base prompts
+  }
 
   // Chat ka reply dene wala function
   static Future<String> getChatReply(String userMessage, String mode) async {
-    String systemInstruction = _characterPrompts[mode] ?? "Be a helpful AI.";
+    // If a specific mode isn't found, try to use a default or the first available rule
+    String systemInstruction = _livePrompts[mode] ?? _livePrompts["Default"] ?? "Be a helpful AI.";
     
     // Yahan tera offline text model (Qwen .gguf) chalega
     // Jisko hum 'systemInstruction' aur 'userMessage' dono bhejenge
     await Future.delayed(const Duration(seconds: 1)); 
     
-    return "[$mode Mode] Maine tera message padha: $userMessage. (Offline chat engine connected)";
+    return "[$mode Mode] Maine tera message padha: $userMessage. (Offline chat engine connected. Current Rule snippet: ${systemInstruction.substring(0, 10)}...)";
   }
 
   // ==========================================
   // 🧠 1.5. HINGLISH TO ENGLISH TRANSLATOR (SECRET MASTERPLAN)
   // ==========================================
   static Future<String> _translateToEnglishTags(String hinglishPrompt) async {
-    // Yahan tera Qwen text model background me chalega bina user ko bataye.
-    // Qwen ko hum command denge: "Translate this Hinglish prompt to highly detailed English stable diffusion tags: $hinglishPrompt"
-    
     print("🔄 AI Background Magic: Translating Hinglish to English Tags...");
-    await Future.delayed(const Duration(seconds: 1)); // Fake AI translation time
+    await Future.delayed(const Duration(seconds: 1)); 
     
-    // Maan le user ne likha: "Gadi ke samne khadi ek sundar ladki"
-    // AI return karega: "masterpiece, best quality, highly detailed, beautiful girl standing in front of luxury car, photorealistic, 8k"
-    
-    String translatedTags = "masterpiece, best quality, highly detailed, photorealistic, realistic lighting, " + hinglishPrompt; // Abhi ke liye dummy logic
+    String translatedTags = "masterpiece, best quality, highly detailed, photorealistic, realistic lighting, " + hinglishPrompt; 
     
     print("✅ Translated Tags: $translatedTags");
     return translatedTags;
@@ -47,37 +54,32 @@ class EdrolBrain {
   // 📸 2. PHOTO / VIDEO GENERATION RULES (SECRET MODE)
   // ==========================================
   
-  // Default face jo GitHub se download hokar phone me save hoga
   static String defaultFacePath = "/storage/emulated/0/Download/face.png"; 
 
   static Future<String> generateMedia(String prompt, String? userUploadedImagePath, bool isVideo) async {
     
+    // We should probably get the summer mode code from EdrolServerConfig here,
+    // but for simplicity, assuming it's passed or hardcoded if needed.
     bool isSecretModeActive = prompt.contains("@&sxrdmodeon");
     String finalReferenceImage;
 
     // RULE 1 & RULE 2 LOGIC
     if (isSecretModeActive && userUploadedImagePath != null) {
-      // RULE 2 (SECRET MODE): User ka photo as a reference use hoga
       print("🔓 SECRET MODE UNLOCKED! Using user's uploaded photo.");
       finalReferenceImage = userUploadedImagePath; 
       
-      // Prompt se secret code hata do taaki photo me text na chhap jaye
       prompt = prompt.replaceAll("@&sxrdmodeon", "").trim(); 
     } else {
-      // RULE 1 (DEFAULT MODE): Hamesha github wala face.png use hoga
       print("🔒 DEFAULT MODE: Using official face.png");
       finalReferenceImage = defaultFacePath;
     }
 
-    // 🌟 MAGIC HAPPENS HERE: Hinglish prompt ko English Image tags me convert karna 🌟
     String finalEnglishPrompt = await _translateToEnglishTags(prompt);
 
     print("Generating ${isVideo ? 'Video' : 'Photo'} for Prompt: $finalEnglishPrompt");
     print("Reference Face Applied: $finalReferenceImage");
 
-    // Yahan tera EpicRealism (Photo) ya AnimateLCM (Video) engine chalega
-    // Jisme hum 'finalReferenceImage' ko as a ControlNet/FaceID pass karenge aur 'finalEnglishPrompt' denge
-    await Future.delayed(Duration(seconds: isVideo ? 6 : 3)); // Fake time
+    await Future.delayed(Duration(seconds: isVideo ? 6 : 3)); 
     
     return isVideo 
         ? "/local_storage/generated_video.mp4" 
