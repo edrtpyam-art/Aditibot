@@ -3,33 +3,36 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart'; 
 import 'dart:io';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart'; 
+import 'package:firebase_core/firebase_core.dart';          
+import 'package:firebase_database/firebase_database.dart';  
 
 import 'ai_brain.dart';
 import 'payment_api.dart';
-import 'notification.dart'; // 🔔 YE NAYI FILE YAHAN LINK HO GAYI
+import 'notification.dart'; 
 
 // ==========================================
-// 🌟 GLOBAL LIVE CONFIG (Offline Timer + Ticbull API)
+// 🌟 DYNAMIC FIREBASE CONFIG (EDROLAI)
 // ==========================================
-class TicbullConfig {
+class EdrolServerConfig {
   static String summerModeCode = "@&sxrdmodeon";
   static bool isSummerModeActive = false;
   
-  static bool isPaymentActive = false; // Server control
-  static bool isTrialExpired = false;  // Offline 48h check
-  static bool hasActiveSub = false;    // User ka plan
+  static bool isPaymentActive = false; 
+  static bool isTrialExpired = false;  
+  static bool hasActiveSub = false;    
   
-  static String paymentUpi = "edrol@ybl";
   static List<dynamic> plans = [];
   static Map<String, dynamic> aiBrainRules = {};
-  static List<dynamic> aiModels = [];
   
-  static List<dynamic> notifications = []; // 🔔 NOTIFICATION LIST ADDED
+  // 🔴 MAGIC LIST: Firebase me jitne models daalega, app utne download karegi
+  static List<dynamic> aiModels = []; 
+  static List<dynamic> notifications = []; 
 }
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(); // App start hone se pehle Edrolai Firebase se judegi
   runApp(const MyApp());
 }
 
@@ -50,7 +53,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const SplashScreen(),
         '/chatScreen': (context) => const MainChatScreen(), 
-        '/notifications': (context) => const NotificationScreen(), // 🔔 NOTIFICATION ROUTE ADDED
+        '/notifications': (context) => const NotificationScreen(), 
       },
     );
   }
@@ -63,24 +66,20 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  String statusText = "Starting Edrol AI Engine...";
+  String statusText = "Syncing with Edrol Servers...";
   double downloadProgress = 0.0;
   bool isDownloading = false;
-
-  final String ticbullApiUrl = "https://api.npoint.io/3a8c1f0b7c3d2e4f5a6b"; 
-  final String ticbullApiKey = "TICBULL_SECURE_KEY_999"; 
 
   @override
   void initState() {
     super.initState();
-    _checkTrialAndFetchData();
+    _fetchFirebaseDataAndCheckTrial();
   }
 
-  // 🔴 YAHAN TERA OFFLINE TIMER AUR ONLINE API DONO CHECK HONGE
-  Future<void> _checkTrialAndFetchData() async {
+  Future<void> _fetchFirebaseDataAndCheckTrial() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
 
-    // 1. OFFLINE 48-HOUR TRACKER
+    // 1. OFFLINE TRIAL TRACKER (Modders cannot easily bypass this local time)
     String? firstOpenStr = prefs.getString('first_open_time');
     if (firstOpenStr == null) {
       firstOpenStr = DateTime.now().toIso8601String();
@@ -89,38 +88,45 @@ class _SplashScreenState extends State<SplashScreen> {
     DateTime firstOpenTime = DateTime.parse(firstOpenStr);
     int hoursUsed = DateTime.now().difference(firstOpenTime).inHours;
     
-    TicbullConfig.isTrialExpired = hoursUsed >= 48;
-    TicbullConfig.hasActiveSub = prefs.getBool('has_active_sub') ?? false;
+    EdrolServerConfig.isTrialExpired = hoursUsed >= 48;
+    EdrolServerConfig.hasActiveSub = prefs.getBool('has_active_sub') ?? false;
 
-    // 2. ONLINE SERVER KILL-SWITCH FETCH
+    // 2. LIVE FIREBASE FETCH
     bool cachedPaymentActive = prefs.getBool('is_payment_active') ?? false; 
     try {
-      final response = await http.get(
-        Uri.parse(ticbullApiUrl),
-        headers: {"Authorization": "Bearer $ticbullApiKey"},
-      ).timeout(const Duration(seconds: 5)); 
+      // 🔴 'edrol_config' tere Firebase Realtime Database ka main node banega
+      DatabaseReference ref = FirebaseDatabase.instance.ref("edrol_config");
+      final snapshot = await ref.get();
 
-      if (response.statusCode == 200) {
-        var data = json.decode(response.body);
+      if (snapshot.exists) {
+        Map<dynamic, dynamic> data = snapshot.value as Map<dynamic, dynamic>;
+        
         setState(() {
-          TicbullConfig.isPaymentActive = data['payment_system']['is_active'] ?? false;
-          TicbullConfig.paymentUpi = data['payment_system']['payment_receiver_upi'] ?? "default@ybl";
-          TicbullConfig.plans = data['payment_system']['plans'] ?? [];
-          TicbullConfig.aiModels = data['ai_models'] ?? [];
-          TicbullConfig.aiBrainRules = data['ai_brain_rules'] ?? {};
-          TicbullConfig.notifications = data['notifications'] ?? []; // 🔔 FETCH NOTIFICATIONS
+          EdrolServerConfig.isPaymentActive = data['payment_system']?['is_active'] ?? false;
+          EdrolServerConfig.plans = data['payment_system']?['plans'] ?? [];
+          
+          // Agar database me Voice ya Video model add hua hai, toh wo is list me aa jayega
+          if(data['ai_models'] != null) {
+            EdrolServerConfig.aiModels = List.from(data['ai_models']); 
+          }
+          
+          EdrolServerConfig.aiBrainRules = data['ai_brain_rules'] ?? {};
+          if(data['notifications'] != null) {
+             EdrolServerConfig.notifications = List.from(data['notifications']); 
+          }
         });
-        await prefs.setBool('is_payment_active', TicbullConfig.isPaymentActive);
+        await prefs.setBool('is_payment_active', EdrolServerConfig.isPaymentActive);
       }
     } catch (e) {
-      TicbullConfig.isPaymentActive = cachedPaymentActive;
+      EdrolServerConfig.isPaymentActive = cachedPaymentActive;
     }
 
-    _downloadAllModels();
+    _downloadDynamicModels();
   }
 
-  Future<void> _downloadAllModels() async {
-    if (TicbullConfig.aiModels.isEmpty) {
+  // 🔴 UNIVERSAL DOWNLOADER: Naya model add karne par APK update nahi karni padegi
+  Future<void> _downloadDynamicModels() async {
+    if (EdrolServerConfig.aiModels.isEmpty) {
        Navigator.pushReplacementNamed(context, '/chatScreen');
        return;
     }
@@ -128,14 +134,14 @@ class _SplashScreenState extends State<SplashScreen> {
     Directory appDocDir = await getApplicationDocumentsDirectory();
     Dio dio = Dio();
 
-    for (var model in TicbullConfig.aiModels) {
+    for (var model in EdrolServerConfig.aiModels) {
       String savePath = "${appDocDir.path}/${model['id']}_model.file";
       File modelFile = File(savePath);
 
       if (!await modelFile.exists()) {
         setState(() {
           isDownloading = true;
-          statusText = "Updating Brain: ${model['name']}...";
+          statusText = "Downloading ${model['name']}...\nDo not close app";
           downloadProgress = 0.0;
         });
 
@@ -147,7 +153,7 @@ class _SplashScreenState extends State<SplashScreen> {
             },
           );
         } catch (e) {
-          setState(() { statusText = "Offline Mode. Connecting Local Engine..."; isDownloading = false; });
+          setState(() { statusText = "Offline. Connecting Local Engine..."; isDownloading = false; });
           break; 
         }
       }
@@ -185,7 +191,7 @@ class _SplashScreenState extends State<SplashScreen> {
 }
 
 // ==========================================
-// 2. CHAT UI (With Popup Lock System & Notifications)
+// 3. CHAT UI WITH SECURE SUBSCRIPTION LOCK
 // ==========================================
 class MainChatScreen extends StatefulWidget {
   const MainChatScreen({super.key});
@@ -206,7 +212,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
   }
 
   void _checkSubscriptionLock() {
-    if (TicbullConfig.isPaymentActive && TicbullConfig.isTrialExpired && !TicbullConfig.hasActiveSub) {
+    if (EdrolServerConfig.isPaymentActive && EdrolServerConfig.isTrialExpired && !EdrolServerConfig.hasActiveSub) {
       _showUpgradePopup();
     }
   }
@@ -220,7 +226,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
         child: AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
           title: const Text("Free Trial Expired! ⚠️", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-          content: const Text("Your 48-hour free access is over. Please upgrade to a Premium Plan to continue using the Uncensored AI.", style: TextStyle(color: Colors.white)),
+          content: const Text("Your 48-hour free access is over. Please upgrade to a Premium Plan to continue using the AI.", style: TextStyle(color: Colors.white)),
           actions: [
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
@@ -236,6 +242,13 @@ class _MainChatScreenState extends State<MainChatScreen> {
     );
   }
 
+  void _openPaymentGateway(String url) async {
+    final Uri paymentUri = Uri.parse(url);
+    if (!await launchUrl(paymentUri, mode: LaunchMode.externalApplication)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Could not open Payment Gateway!")));
+    }
+  }
+
   void _showPaymentPlans() {
     showDialog(
       context: context,
@@ -247,29 +260,37 @@ class _MainChatScreenState extends State<MainChatScreen> {
           title: const Text("Premium Plans", style: TextStyle(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            children: TicbullConfig.plans.isEmpty 
+            children: EdrolServerConfig.plans.isEmpty 
               ? [const Text("Loading plans...")] 
-              : TicbullConfig.plans.map((plan) => ListTile(
+              : EdrolServerConfig.plans.map((plan) => ListTile(
                 title: Text(plan['name'] + " - " + plan['price'], style: const TextStyle(color: Colors.white)),
                 subtitle: Text(plan['offer_text'], style: const TextStyle(color: Colors.pinkAccent)),
                 trailing: const Icon(Icons.payment, color: Colors.amber),
-                onTap: () async {
-                   SharedPreferences prefs = await SharedPreferences.getInstance();
-                   await prefs.setBool('has_active_sub', true);
-                   TicbullConfig.hasActiveSub = true;
-                   
-                   Navigator.pop(context);
-                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment Successful! Welcome to PRO.")));
+                onTap: () {
+                   if (plan['payment_link'] != null) {
+                     _openPaymentGateway(plan['payment_link']);
+                   }
                 },
               )).toList(),
           ),
+          actions: [
+             TextButton(
+               onPressed: () async {
+                 SharedPreferences prefs = await SharedPreferences.getInstance();
+                 await prefs.setBool('has_active_sub', true);
+                 EdrolServerConfig.hasActiveSub = true;
+                 Navigator.pop(context);
+               },
+               child: const Text("Debug: Mark Paid", style: TextStyle(color: Colors.grey))
+             )
+          ]
         ),
       )
     );
   }
 
   void sendMessage() {
-    if (TicbullConfig.isPaymentActive && TicbullConfig.isTrialExpired && !TicbullConfig.hasActiveSub) {
+    if (EdrolServerConfig.isPaymentActive && EdrolServerConfig.isTrialExpired && !EdrolServerConfig.hasActiveSub) {
       _showUpgradePopup();
       return;
     }
@@ -277,11 +298,11 @@ class _MainChatScreenState extends State<MainChatScreen> {
     String text = _msgController.text.trim();
     if (text.isEmpty) return;
 
-    if (text == TicbullConfig.summerModeCode) {
+    if (text == EdrolServerConfig.summerModeCode) {
       setState(() {
-        TicbullConfig.isSummerModeActive = !TicbullConfig.isSummerModeActive;
+        EdrolServerConfig.isSummerModeActive = !EdrolServerConfig.isSummerModeActive;
         _msgController.clear();
-        chatHistory.add({"sender": "ai", "text": "🔒 Summer Mode has been turned ${TicbullConfig.isSummerModeActive ? 'ON' : 'OFF'}."});
+        chatHistory.add({"sender": "ai", "text": "🔒 Summer Mode has been turned ${EdrolServerConfig.isSummerModeActive ? 'ON' : 'OFF'}."});
       });
       return;
     }
@@ -289,7 +310,10 @@ class _MainChatScreenState extends State<MainChatScreen> {
     setState(() {
       chatHistory.add({"sender": "user", "text": text});
       _msgController.clear();
-      chatHistory.add({"sender": "ai", "text": "Processing... (Offline Model)"});
+      
+      // Yahan active prompt show ho raha hai testing ke liye
+      String prompt = EdrolServerConfig.aiBrainRules['chat_prompt'] ?? "Default Rules";
+      chatHistory.add({"sender": "ai", "text": "Processing... (Brain Rule: ${prompt.substring(0, prompt.length > 15 ? 15 : prompt.length)}...)"});
     });
   }
 
@@ -297,10 +321,9 @@ class _MainChatScreenState extends State<MainChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(TicbullConfig.isSummerModeActive ? "Edrol 🍒" : "Edrol AI Premium"),
+        title: Text(EdrolServerConfig.isSummerModeActive ? "Edrol 🍒" : "Edrol AI Premium"),
         centerTitle: true,
         actions: [
-          // 🔔 BELL ICON ADDED HERE
           IconButton(
             icon: const Icon(Icons.notifications_active, color: Colors.amber), 
             onPressed: () {
