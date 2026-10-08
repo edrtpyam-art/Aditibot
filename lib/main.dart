@@ -33,9 +33,16 @@ class EdrolServerConfig {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // 🔴 SAFETY NET ADDED: Ab app crash nahi hogi agar Firebase atkega!
+  // 🔴 DIRECT FIREBASE CONNECTION (Bina kisi extra file ke lafde ke)
   try {
-    await Firebase.initializeApp(); 
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: "AIzaSyB9aScYnEm70U4f1lrollAQ25hEUpY2jCc",
+        appId: "1:639176557245:android:7b1ea628f7845894abadd4",
+        messagingSenderId: "639176557245",
+        projectId: "edro-e45a8",
+      ),
+    ); 
   } catch (e) {
     print("Firebase Initialize Error (Ignored to prevent crash): $e");
   }
