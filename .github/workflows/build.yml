@@ -36,8 +36,9 @@ jobs:
       - name: Generate App Icon
         run: dart run flutter_launcher_icons
 
-      - name: Build Android APK
-        run: flutter build apk --release
+      # 🔴 MAGIC FIX: Obfuscation added to prevent Modding/Hacking
+      - name: Build Android APK (Secured & Obfuscated)
+        run: flutter build apk --release --obfuscate --split-debug-info=build/app/outputs/symbols
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
