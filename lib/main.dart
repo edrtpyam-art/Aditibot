@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:url_launcher/url_launcher.dart'; 
 import 'package:firebase_core/firebase_core.dart';          
 import 'package:firebase_database/firebase_database.dart';  
+import 'package:image_picker/image_picker.dart'; // 👈 Gallery ke liye import
 
 import 'ai_brain.dart';
 import 'payment_api.dart';
@@ -24,15 +25,13 @@ class EdrolServerConfig {
   
   static List<dynamic> plans = [];
   static Map<String, dynamic> aiBrainRules = {};
-  
-  // 🔴 MAGIC LIST: Firebase me jitne models daalega, app utne download karegi
   static List<dynamic> aiModels = []; 
   static List<dynamic> notifications = []; 
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(); // App start hone se pehle Edrolai Firebase se judegi
+  await Firebase.initializeApp(); 
   runApp(const MyApp());
 }
 
@@ -79,7 +78,6 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _fetchFirebaseDataAndCheckTrial() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
 
-    // 1. OFFLINE TRIAL TRACKER (Modders cannot easily bypass this local time)
     String? firstOpenStr = prefs.getString('first_open_time');
     if (firstOpenStr == null) {
       firstOpenStr = DateTime.now().toIso8601String();
@@ -91,10 +89,8 @@ class _SplashScreenState extends State<SplashScreen> {
     EdrolServerConfig.isTrialExpired = hoursUsed >= 48;
     EdrolServerConfig.hasActiveSub = prefs.getBool('has_active_sub') ?? false;
 
-    // 2. LIVE FIREBASE FETCH
     bool cachedPaymentActive = prefs.getBool('is_payment_active') ?? false; 
     try {
-      // 🔴 'edrol_config' tere Firebase Realtime Database ka main node banega
       DatabaseReference ref = FirebaseDatabase.instance.ref("edrol_config");
       final snapshot = await ref.get();
 
@@ -105,7 +101,6 @@ class _SplashScreenState extends State<SplashScreen> {
           EdrolServerConfig.isPaymentActive = data['payment_system']?['is_active'] ?? false;
           EdrolServerConfig.plans = data['payment_system']?['plans'] ?? [];
           
-          // Agar database me Voice ya Video model add hua hai, toh wo is list me aa jayega
           if(data['ai_models'] != null) {
             EdrolServerConfig.aiModels = List.from(data['ai_models']); 
           }
@@ -116,6 +111,9 @@ class _SplashScreenState extends State<SplashScreen> {
           }
         });
         await prefs.setBool('is_payment_active', EdrolServerConfig.isPaymentActive);
+
+        // 🔴 MAJOR FIX 1: Firebase rules seedha AI Brain me feed ho gaye!
+        EdrolBrain.updatePromptsFromFirebase(EdrolServerConfig.aiBrainRules);
       }
     } catch (e) {
       EdrolServerConfig.isPaymentActive = cachedPaymentActive;
@@ -124,7 +122,6 @@ class _SplashScreenState extends State<SplashScreen> {
     _downloadDynamicModels();
   }
 
-  // 🔴 UNIVERSAL DOWNLOADER: Naya model add karne par APK update nahi karni padegi
   Future<void> _downloadDynamicModels() async {
     if (EdrolServerConfig.aiModels.isEmpty) {
        Navigator.pushReplacementNamed(context, '/chatScreen');
@@ -191,7 +188,7 @@ class _SplashScreenState extends State<SplashScreen> {
 }
 
 // ==========================================
-// 3. CHAT UI WITH SECURE SUBSCRIPTION LOCK
+// 3. CHAT UI WITH PHOTO UPLOAD & SUBSCRIPTION
 // ==========================================
 class MainChatScreen extends StatefulWidget {
   const MainChatScreen({super.key});
@@ -201,6 +198,8 @@ class MainChatScreen extends StatefulWidget {
 
 class _MainChatScreenState extends State<MainChatScreen> {
   final TextEditingController _msgController = TextEditingController();
+  final ImagePicker _picker = ImagePicker(); // 🔴 Gallery Picker Tool
+  
   List<Map<String, String>> chatHistory = [
     {"sender": "ai", "text": "Edrol Brain Synced. Ready for action."}
   ];
@@ -289,7 +288,31 @@ class _MainChatScreenState extends State<MainChatScreen> {
     );
   }
 
-  void sendMessage() {
+  // 🔴 MAJOR FIX 2: Photo Upload Logic 
+  Future<void> _pickAndProcessImage() async {
+    // Payment Check before uploading
+    if (EdrolServerConfig.isPaymentActive && EdrolServerConfig.isTrialExpired && !EdrolServerConfig.hasActiveSub) {
+      _showUpgradePopup();
+      return;
+    }
+
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() {
+        chatHistory.add({"sender": "user", "text": "📷 [Photo Selected]"});
+        chatHistory.add({"sender": "ai", "text": "Analyzing your photo..."});
+      });
+
+      // Photo ko seedha AI Brain me process hone bhej diya
+      String aiResponse = await EdrolBrain.generateMedia("Analyze image", image.path, false);
+      
+      setState(() {
+        chatHistory.add({"sender": "ai", "text": "Image Processed: Saved at $aiResponse"});
+      });
+    }
+  }
+
+  void sendMessage() async {
     if (EdrolServerConfig.isPaymentActive && EdrolServerConfig.isTrialExpired && !EdrolServerConfig.hasActiveSub) {
       _showUpgradePopup();
       return;
@@ -310,10 +333,13 @@ class _MainChatScreenState extends State<MainChatScreen> {
     setState(() {
       chatHistory.add({"sender": "user", "text": text});
       _msgController.clear();
-      
-      // Yahan active prompt show ho raha hai testing ke liye
-      String prompt = EdrolServerConfig.aiBrainRules['chat_prompt'] ?? "Default Rules";
-      chatHistory.add({"sender": "ai", "text": "Processing... (Brain Rule: ${prompt.substring(0, prompt.length > 15 ? 15 : prompt.length)}...)"});
+    });
+
+    // Yahan active chat rule se AI reply aayega
+    String aiReply = await EdrolBrain.getChatReply(text, "Default");
+    
+    setState(() {
+      chatHistory.add({"sender": "ai", "text": aiReply});
     });
   }
 
@@ -330,7 +356,8 @@ class _MainChatScreenState extends State<MainChatScreen> {
               Navigator.pushNamed(context, '/notifications');
             }
           ),
-          IconButton(icon: const Icon(Icons.image), onPressed: () {}), 
+          // 🔴 PHOTO ICON AB GALLERY KHOLEGA!
+          IconButton(icon: const Icon(Icons.image), onPressed: _pickAndProcessImage), 
         ],
       ),
       body: Column(
