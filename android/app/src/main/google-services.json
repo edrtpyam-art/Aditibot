@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "639176557245",
+    "project_id": "edro-e45a8",
+    "storage_bucket": "edro-e45a8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:639176557245:android:7b1ea628f7845894abadd4",
+        "android_client_info": {
+          "package_name": "com.dragoeagle.edrolai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB9aScYnEm70U4f1lrollAQ25hEUpY2jCc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
