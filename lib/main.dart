@@ -32,7 +32,14 @@ class EdrolServerConfig {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(); 
+  
+  // 🔴 SAFETY NET ADDED: Ab app crash nahi hogi agar Firebase atkega!
+  try {
+    await Firebase.initializeApp(); 
+  } catch (e) {
+    print("Firebase Initialize Error (Ignored to prevent crash): $e");
+  }
+  
   runApp(const MyApp());
 }
 
