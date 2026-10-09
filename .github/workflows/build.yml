@@ -24,6 +24,10 @@ jobs:
         with:
           gradle-version: '7.6.4'
 
+      # 🔴 C++ aur Llama AI compile karne ke liye tools add kiye
+      - name: Install Native Build Tools
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -36,6 +40,7 @@ jobs:
           java -version
           gradle --version
           flutter --version
+          cmake --version
 
       - name: Install Dependencies
         run: flutter pub get
