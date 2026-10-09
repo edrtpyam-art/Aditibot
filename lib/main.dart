@@ -112,7 +112,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ListTile(
               leading: Icon(Icons.add),
               title: Text("New Chat"),
-              onPressed: () {
+              onTap: () {
                 setState(() {
                   messages.clear();
                   messages.add({"isMe": false, "text": "Bolo jaan, kya baat karni hai ab? 😘", "isImage": false});
