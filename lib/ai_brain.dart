@@ -13,13 +13,14 @@ class AditiBrain {
   
   // 2. Aapki AI Horde API Key aur Image Setup
   final String apiKey = "FOfq-7UzBCB4QehqNSqF0A";
-  final String baseFaceUrl = "https://raw.githubusercontent.com/edrtpyam-art/Aditibot/main/assets/images/aditi.jpg"; // RAW link
+  final String baseFaceUrl = "https://raw.githubusercontent.com/edrtpyam-art/Aditibot/main/assets/images/aditi.jpg";
   final String secretCode = "@drtg267";
 
-  late LlamaEngine engine;
+  // 🔴 FIX: 'LlamaEngine' ki jagah naye package ke hisaab se 'Llama' class use karni hai
+  late Llama engine;
   final translator = GoogleTranslator();
   
-  // Default system prompt (Agar net na ho toh ye chalega)
+  // Default system prompt
   String systemPrompt = "You are Aditi, a hot sexc romantic desi girlfriend. Always reply in Hinglish.";
 
   // App start hone par sabse pehle ye function chalega
@@ -45,11 +46,13 @@ class AditiBrain {
       await Dio().download(modelUrl, filePath);
     }
 
-    // C. Model ko Phone ki Memory me start karna
-    engine = LlamaEngine(
-      modelPath: filePath,
-      contextSize: 2048,
-      threads: 4, 
+    // C. Model ko Phone ki Memory me start karna (Naya Initialization format)
+    // 🔴 FIX: Naye package me Llama ko initialize karne ka tareeqa badal gaya hai
+    engine = Llama(
+      filePath,
+      modelParams: ModelParams(),
+      contextParams: ContextParams()..context = 2048, 
+      samplerParams: SamplerParams(),
     );
   }
 
@@ -57,8 +60,13 @@ class AditiBrain {
   Stream<String> sendChatMessage(String userText) async* {
     String formattedPrompt = "<|im_start|>system\n$systemPrompt<|im_end|>\n<|im_start|>user\n$userText<|im_end|>\n<|im_start|>assistant\n";
     
-    await for (final token in engine.generate(formattedPrompt)) {
-      yield token; // Ye stream type-writer effect ke liye hai
+    // 🔴 FIX: engine.setPrompt aur engine.getNext() ka naya tarika use kiya hai
+    engine.setPrompt(formattedPrompt);
+    
+    while (true) {
+      var (token, done) = engine.getNext();
+      if (done) break;
+      yield token; 
     }
   }
 
@@ -95,7 +103,7 @@ class AditiBrain {
     // 4. AI Horde Prompt Setup
     String hordePrompt = useBaseFace 
         ? "1girl, exact same face as source image, beautiful, highly detailed, " + finalEnglishPrompt 
-        : "highly detailed, " + finalEnglishPrompt; // Agar code diya toh base face mat bolo
+        : "highly detailed, " + finalEnglishPrompt; 
 
     Map<String, dynamic> payload = {
       "prompt": hordePrompt,
@@ -109,7 +117,7 @@ class AditiBrain {
       payload["source_processing"] = "img2img";
     }
 
-    // 5. API Request aur Polling (Photo banne ka wait karna)
+    // 5. API Request aur Polling
     try {
       var generateRes = await http.post(
         Uri.parse('https://aihorde.net/api/v2/generate/async'),
@@ -121,7 +129,7 @@ class AditiBrain {
         String jobId = jsonDecode(generateRes.body)['id'];
         
         while (true) {
-          await Future.delayed(Duration(seconds: 4)); // Har 4 second me check
+          await Future.delayed(Duration(seconds: 4)); 
           var statusRes = await http.get(
             Uri.parse('https://aihorde.net/api/v2/generate/status/$jobId'),
             headers: {'apikey': apiKey},
@@ -130,7 +138,7 @@ class AditiBrain {
           if (statusRes.statusCode == 200) {
             var statusData = jsonDecode(statusRes.body);
             if (statusData['done'] == true) {
-              return statusData['generations'][0]['img']; // Final Image URL
+              return statusData['generations'][0]['img']; 
             }
           }
         }
