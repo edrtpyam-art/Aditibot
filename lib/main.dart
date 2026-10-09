@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
+// 🔴 Naye Imports: Brain aur Notification screen ko link karne ke liye
+import 'ai_brain.dart';
+import 'notification.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // 🔴 CRASH-PROOF FIX: Agar Firebase load hone me error de, 
-  // toh bhi app freeze nahi hoga aur seedha chal padega!
   try {
     await Firebase.initializeApp();
   } catch (e) {
@@ -36,12 +37,12 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   bool isSubscribed = true;
   int daysLeft = 0;
-  bool isLoading = true; // 🔴 Animation ke liye loading state
+  bool isLoading = true; 
   
-  // Message type karne ke liye controller
   final TextEditingController _msgController = TextEditingController();
+  // 🔴 Brain object banaya
+  final AditiBrain _brain = AditiBrain(); 
   
-  // Chat history screen par dikhane ke liye list
   List<Map<String, dynamic>> messages = [
     {"isMe": false, "text": "Hii jaan, kya kar rahe ho? ❤️", "isImage": false}
   ];
@@ -49,13 +50,24 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _checkOfflineTimer(); // App khulte hi timer check hoga
+    _initializeApp();
   }
 
-  // Offline Timer Logic
+  Future<void> _initializeApp() async {
+    await _checkOfflineTimer();
+    // 🔴 App start hote hi offline AI model ko load karo
+    await _brain.initialize();
+    
+    if(mounted) {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
   Future<void> _checkOfflineTimer() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? expiryDateStr = prefs.getString('expiry_date'); // Expiry date local storage se nikali
+    String? expiryDateStr = prefs.getString('expiry_date'); 
     
     if (expiryDateStr != null) {
       DateTime expiryDate = DateTime.parse(expiryDateStr);
@@ -70,38 +82,63 @@ class _ChatScreenState extends State<ChatScreen> {
         });
       }
     }
-    
-    // 🔴 Timer check hote hi loading band karke screen dikhao (Smooth transition)
-    setState(() {
-      isLoading = false;
-    });
   }
 
-  // User ka message send karne ka function
-  void _sendMessage(bool isPhotoRequest) {
+  // 🔴 REAL AI LOGIC ATTACHED
+  Future<void> _sendMessage(bool isPhotoRequest) async {
     String text = _msgController.text.trim();
     if (text.isEmpty) return;
 
     setState(() {
-      // User ka message screen par dikhao
       messages.add({"isMe": true, "text": text, "isImage": false});
     });
     
     _msgController.clear();
 
-    // YAHAN AI BRAIN KO CALL JAYEGI
     if (isPhotoRequest) {
-      // ImageEngine.generateRomanticPhoto(text)... call hoga
-      print("Photo mangi hai: $text");
+      // 1. Photo Request (AI Horde API)
+      setState(() {
+         messages.add({"isMe": false, "text": "Ek minute rukna baby, main ready ho rahi hoon... 😘", "isImage": false});
+      });
+      
+      String? imageUrl = await _brain.generateRomanticPhoto(text);
+      
+      if(imageUrl != null && mounted) {
+        setState(() {
+          messages.add({"isMe": false, "text": imageUrl, "isImage": true});
+        });
+      }
     } else {
-      // AditiBrain.sendMessage(text)... call hoga
-      print("Chat bheji hai: $text");
+      // 2. Chat Request (Offline Qwen Model)
+      // Typing indicator ke liye ek blank message banaya
+      setState(() {
+         messages.add({"isMe": false, "text": "typing...", "isImage": false});
+      });
+
+      String aiResponse = "";
+      int responseIndex = messages.length - 1; // Last message ka index
+
+      // Stream ko listen karna taki word-by-word type ho
+      _brain.sendChatMessage(text).listen((String token) {
+        if(mounted) {
+          setState(() {
+            if(aiResponse.isEmpty && token.trim().isEmpty) return; // ignore initial empty spaces
+            
+            // "typing..." ko hatakar asli text lagao
+            if(messages[responseIndex]["text"] == "typing...") {
+               messages[responseIndex]["text"] = ""; 
+            }
+            
+            aiResponse += token;
+            messages[responseIndex]["text"] = aiResponse;
+          });
+        }
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // 🔴 Jab tak data load ho raha hai, tab tak ye Smooth Loading Animation dikhegi
     if (isLoading) {
       return Scaffold(
         backgroundColor: const Color(0xFF0F0F0F),
@@ -128,12 +165,15 @@ class _ChatScreenState extends State<ChatScreen> {
           IconButton(
             icon: Icon(Icons.notifications),
             onPressed: () {
-              // Notification screen open hogi
+              // 🔴 FIXED: Notification icon dabane par ab screen khulegi
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => NotificationScreen()),
+              );
             },
           )
         ],
       ),
-      // SIDE MENU (DRAWER)
       drawer: Drawer(
         child: ListView(
           children: [
@@ -150,7 +190,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   messages.clear();
                   messages.add({"isMe": false, "text": "Bolo jaan, kya baat karni hai ab? 😘", "isImage": false});
                 });
-                Navigator.pop(context); // Menu band karne ke liye
+                Navigator.pop(context);
               },
             ),
             Divider(),
@@ -164,14 +204,18 @@ class _ChatScreenState extends State<ChatScreen> {
               trailing: IconButton(
                 icon: Icon(Icons.delete, color: Colors.red),
                 onPressed: () {
-                  // Local DB se chat delete karne ka logic
+                  // 🔴 FIXED: Delete dabane par chat history saaf ho jayegi
+                  setState(() {
+                    messages.clear();
+                    messages.add({"isMe": false, "text": "Saari purani baatein delete kar di. Ab nayi shuruat karein? ❤️", "isImage": false});
+                  });
+                  Navigator.pop(context); // drawer band karo
                 },
               ),
             ),
           ],
         ),
       ),
-      // MAIN CHAT AREA
       body: Column(
         children: [
           Expanded(
@@ -180,6 +224,36 @@ class _ChatScreenState extends State<ChatScreen> {
               itemCount: messages.length,
               itemBuilder: (context, index) {
                 var msg = messages[index];
+                
+                // 🔴 NEW: Agar photo hai, toh NetworkImage dikhao
+                if(msg["isImage"] == true) {
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      margin: EdgeInsets.symmetric(vertical: 5),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(15),
+                        child: Image.network(
+                          msg["text"],
+                          width: 250,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            return Container(
+                              width: 250, height: 250, color: Colors.grey[800],
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return Text("Photo laane me error ho gaya 😢", style: TextStyle(color: Colors.red));
+                          }
+                        ),
+                      )
+                    )
+                  );
+                }
+
+                // Normal Text Message
                 return Align(
                   alignment: msg["isMe"] ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
@@ -198,7 +272,6 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          // CHAT INPUT YA LOCK SCREEN
           isSubscribed 
             ? _buildChatInput() 
             : _buildLockedInput() 
@@ -224,11 +297,11 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           IconButton(
             icon: Icon(Icons.image, color: Colors.pinkAccent), 
-            onPressed: () => _sendMessage(true) // Photo wali request bhejo
+            onPressed: () => _sendMessage(true) 
           ), 
           IconButton(
             icon: Icon(Icons.send, color: Colors.pinkAccent), 
-            onPressed: () => _sendMessage(false) // Normal chat bhejo
+            onPressed: () => _sendMessage(false) 
           ), 
         ],
       ),
