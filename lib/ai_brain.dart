@@ -22,9 +22,9 @@ class AditiBrain {
   // Default system prompt
   String systemPrompt = "You are Aditi, a hot sexc romantic desi girlfriend. Always reply in Hinglish.";
 
-  // App start hone par sabse pehle ye function chalega
-  Future<void> initialize() async {
-    // A. Firebase Admin Panel se naya Prompt fetch karna
+// ... baki code same rahega ...
+ // 🔴 NAYA: onProgress callback add kiya
+  Future<void> initialize({Function(String)? onProgress}) async {
     try {
       final ref = FirebaseDatabase.instance.ref("admin_controls/system_prompt");
       final snapshot = await ref.get();
@@ -36,17 +36,32 @@ class AditiBrain {
       print("Firebase offline, using default prompt.");
     }
 
-    // B. AI Model Download aur Load karna
     final dir = await getApplicationDocumentsDirectory();
     final filePath = "${dir.path}/aditi_qwen_brain.gguf";
 
     if (!await File(filePath).exists()) {
       print("Downloading Offline AI Brain...");
-      await Dio().download(modelUrl, filePath);
+      if (onProgress != null) {
+        onProgress("AI Brain download ho raha hai... (0%)");
+      }
+      
+      // 🔴 NAYA: Dio ka onReceiveProgress use karke % nikalna
+      await Dio().download(
+        modelUrl, 
+        filePath,
+        onReceiveProgress: (received, total) {
+          if (total != -1 && onProgress != null) {
+            String percentage = (received / total * 100).toStringAsFixed(0);
+            onProgress("AI Brain download ho raha hai... ($percentage%)");
+          }
+        }
+      );
+    }
+    
+    if (onProgress != null) {
+      onProgress("AI ko load kiya ja raha hai... ❤️");
     }
 
-    // 🔴 FIX: '..context = 2048' hata diya gaya hai. 
-    // Ab ye direct default settings par bina error ke compile hoga.
     engine = Llama(
       filePath,
       modelParams: ModelParams(),
@@ -54,6 +69,9 @@ class AditiBrain {
       samplerParams: SamplerParams(),
     );
   }
+
+// ... baki code same rahega ...
+
 
   // CHAT FUNCTION (100% Offline)
   Stream<String> sendChatMessage(String userText) async* {
