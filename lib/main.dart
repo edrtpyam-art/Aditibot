@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'ai_brain.dart';
+import 'notification.dart'; // Apna notification page yahan link rakhna
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,13 +26,14 @@ class AditiApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF120E1A), // Deep Purple/Dark Background
+        // 🔴 NAYA: Modern Premium Dark Background (Gemini style)
+        scaffoldBackgroundColor: const Color(0xFF131314), 
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFD81B60), // Pink Accent
-          secondary: Color(0xFF8E24AA), // Purple Accent
-          surface: Color(0xFF1E1826),
+          primary: Color(0xFFB388FF), // Premium Purple Accent
+          secondary: Color(0xFF1E1F20), // Chat Bubble / Surface
+          surface: Color(0xFF1E1F20), // Menu Background
         ),
-        fontFamily: 'Roboto', // Professional Font
+        fontFamily: 'Roboto',
       ),
       home: const ChatScreen(),
     );
@@ -54,11 +56,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
   final AditiBrain _brain = AditiBrain();
 
-  // Chat list
   List<Map<String, dynamic>> messages = [];
   
   // Custom Character State
-  String currentCharacterName = "AI";
+  String currentCharacterName = "Aditi";
   String currentCharacterRole = "Assistant";
 
   late AnimationController _emojiAnimController;
@@ -85,7 +86,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     await _checkOfflineTimer();
     setState(() {
       isLoading = false;
-      // Start with empty screen, no fake history
     });
   }
 
@@ -108,32 +108,37 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   void _scrollToBottom() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
-  // 🔴 Image Picker Logic
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 800,      
+      maxHeight: 800,
+      imageQuality: 60,   
+    );
     
     if (image != null) {
       setState(() {
         messages.add({
           "isMe": true,
-          "text": "Uploaded Image",
+          "text": "Image Uploaded",
           "isImage": true,
           "localImagePath": image.path,
         });
       });
       _scrollToBottom();
-      // Pass path to text controller for user reference (optional)
-      _msgController.text += " [Image Uploaded] ";
+      _msgController.text = _msgController.text + " " + _brain.secretCode; 
     }
   }
 
@@ -141,10 +146,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     String text = _msgController.text.trim();
     if (text.isEmpty && !messages.any((m) => m["isMe"] == true && m.containsKey("localImagePath"))) return;
 
-    _emojiAnimController.forward(from: 0.0); // Trigger emoji animation
+    _emojiAnimController.forward(from: 0.0);
 
     String? localImagePath;
-    // Check if the last user message was an image to send along with text
     if (messages.isNotEmpty && messages.last["isMe"] == true && messages.last.containsKey("localImagePath")) {
       localImagePath = messages.last["localImagePath"];
     }
@@ -162,7 +166,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     });
     _scrollToBottom();
 
-    // 🔴 Logic to check for image generation or chat
     if (text.toLowerCase().contains("photo") || text.toLowerCase().contains("image") || localImagePath != null) {
       String? imageUrl = await _brain.generateHordeImage(
         text, 
@@ -172,22 +175,21 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       
       if (mounted) {
         setState(() {
-          messages.removeLast(); // Remove typing indicator
+          messages.removeLast();
           if (imageUrl != null) {
             messages.add({"isMe": false, "text": imageUrl, "isImage": true, "isNetworkImage": true});
           } else {
-            messages.add({"isMe": false, "text": "Error generating image.", "isImage": false});
+            messages.add({"isMe": false, "text": "Network issue baby, photo nahi aayi 😢", "isImage": false});
           }
         });
         _scrollToBottom();
       }
     } else {
-      // Normal Chat
       String aiResponse = await _brain.sendHordeChatMessage(text, role: currentCharacterRole);
       
       if (mounted) {
         setState(() {
-          messages.removeLast(); // Remove typing indicator
+          messages.removeLast(); 
           messages.add({"isMe": false, "text": aiResponse, "isImage": false});
         });
         _scrollToBottom();
@@ -196,6 +198,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 
+  // 🔴 NAYA: Character Setup Dialog (Clean UI)
   void _showCustomCharacterDialog() {
     String name = currentCharacterName;
     String role = currentCharacterRole;
@@ -205,19 +208,33 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       builder: (context) {
         return AlertDialog(
           backgroundColor: Theme.of(context).colorScheme.surface,
-          title: const Text("Custom Character", style: TextStyle(color: Colors.white)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text("Select AI Model / Role", style: TextStyle(color: Colors.white, fontSize: 18)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                decoration: const InputDecoration(labelText: "Name (e.g. Rahul, Priya)", labelStyle: TextStyle(color: Colors.white54)),
+                decoration: InputDecoration(
+                  labelText: "Character Name", 
+                  labelStyle: const TextStyle(color: Colors.white54),
+                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
+                ),
                 style: const TextStyle(color: Colors.white),
                 onChanged: (val) => name = val,
+                controller: TextEditingController(text: currentCharacterName),
               ),
+              const SizedBox(height: 10),
               TextField(
-                decoration: const InputDecoration(labelText: "Role/Personality (e.g. Strict boss, Best friend)", labelStyle: TextStyle(color: Colors.white54)),
+                decoration: InputDecoration(
+                  labelText: "Role (e.g. GF, Boss, Teacher)", 
+                  labelStyle: const TextStyle(color: Colors.white54),
+                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
+                ),
                 style: const TextStyle(color: Colors.white),
                 onChanged: (val) => role = val,
+                controller: TextEditingController(text: currentCharacterRole),
               ),
             ],
           ),
@@ -227,16 +244,20 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               child: const Text("Cancel", style: TextStyle(color: Colors.white54)),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.black, // Dark text on light purple
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
               onPressed: () {
                 setState(() {
                   currentCharacterName = name.isNotEmpty ? name : "AI";
                   currentCharacterRole = role.isNotEmpty ? role : "Assistant";
-                  messages.add({"isMe": false, "text": "Hi, I am $currentCharacterName. I'm here as your $currentCharacterRole.", "isImage": false});
+                  messages.add({"isMe": false, "text": "Hi, I am $currentCharacterName. Ready to chat! ✨", "isImage": false});
                 });
                 Navigator.pop(context);
               },
-              child: const Text("Set"),
+              child: const Text("Update Model", style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -248,96 +269,62 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     if (isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: Color(0xFFD81B60))),
+        body: Center(child: CircularProgressIndicator(color: Color(0xFFB388FF))),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: const Color(0xFF131314),
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        // Clean look: No top title, or very minimal
-      ),
-      drawer: Drawer(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Theme.of(context).colorScheme.secondary, Theme.of(context).colorScheme.primary],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+        iconTheme: const IconThemeData(color: Colors.white70),
+        centerTitle: false,
+        titleSpacing: 0,
+        // 🔴 NAYA: Gemini Pro jaisa Dropdown Title
+        title: InkWell(
+          onTap: _showCustomCharacterDialog,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  currentCharacterName, 
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.white),
                 ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  const Text("Premium Member", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  Text(isSubscribed ? "Plan Active: $daysLeft days left" : "Plan Expired", style: const TextStyle(color: Colors.white70)),
-                ],
-              ),
+                const SizedBox(width: 4),
+                const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white54, size: 20),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.add, color: Colors.white),
-              title: const Text("New Chat", style: TextStyle(color: Colors.white)),
-              onTap: () {
-                setState(() { messages.clear(); });
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.person_add, color: Colors.white),
-              title: const Text("Custom Character", style: TextStyle(color: Colors.white)),
-              onTap: () {
-                Navigator.pop(context);
-                _showCustomCharacterDialog();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.info_outline, color: Colors.white),
-              title: const Text("App Model Info", style: TextStyle(color: Colors.white)),
-              onTap: () {
-                // Show Model Info
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Powered by AI Horde Uncensored Models")));
-                Navigator.pop(context);
-              },
-            ),
-             ListTile(
-              leading: const Icon(Icons.edit, color: Colors.white),
-              title: const Text("Manual Edit/Chat", style: TextStyle(color: Colors.white)),
-              onTap: () {
-                // Placeholder for manual editing
-                Navigator.pop(context);
-              },
-            ),
-            const Divider(color: Colors.white24),
-            ListTile(
-              leading: const Icon(Icons.delete_sweep, color: Colors.redAccent),
-              title: const Text("Clear History", style: TextStyle(color: Colors.redAccent)),
-              onTap: () {
-                setState(() { messages.clear(); });
-                Navigator.pop(context);
-              },
-            ),
-          ],
+          ),
         ),
+        actions: [
+          // 🔴 NAYA: Real Notification Icon
+          IconButton(
+            icon: const Icon(Icons.notifications_none_rounded, color: Colors.white70),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => NotificationScreen()),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
+      drawer: _buildModernDrawer(), // Naya modern drawer call ho raha hai
       body: Column(
         children: [
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
               itemCount: messages.length,
               itemBuilder: (context, index) {
                 var msg = messages[index];
                 bool isMe = msg["isMe"] ?? false;
 
-                // Image Rendering
                 if (msg["isImage"] == true) {
                   Widget imageWidget;
                   if (msg["isNetworkImage"] == true) {
@@ -345,46 +332,47 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   } else if (msg["localImagePath"] != null) {
                      imageWidget = Image.file(File(msg["localImagePath"]), fit: BoxFit.cover);
                   } else {
-                     imageWidget = const Text("Image missing");
+                     imageWidget = const SizedBox();
                   }
 
                   return Align(
                     alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                     child: Container(
                       margin: const EdgeInsets.symmetric(vertical: 8),
-                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                         child: imageWidget,
                       ),
                     ),
                   );
                 }
 
-                // Text Rendering
                 return Align(
                   alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.85),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: isMe ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surface,
+                      // 🔴 NAYA: Premium Purple Bubble for User, Dark Grey for AI
+                      color: isMe ? Theme.of(context).colorScheme.primary.withOpacity(0.9) : Theme.of(context).colorScheme.secondary,
                       borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(16),
-                        topRight: const Radius.circular(16),
-                        bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(4),
-                        bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(16),
+                        topLeft: const Radius.circular(20),
+                        topRight: const Radius.circular(20),
+                        bottomLeft: isMe ? const Radius.circular(20) : const Radius.circular(4),
+                        bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(20),
                       ),
                     ),
                     child: msg["isTyping"] == true 
-                      ? const SizedBox(height: 20, width: 40, child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+                      ? const SizedBox(height: 20, width: 40, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)))
                       : Text(
                           msg["text"],
                           style: TextStyle(
-                            color: isMe ? Colors.white : Colors.white70, 
-                            fontSize: 16, 
-                            fontWeight: FontWeight.w500 // Bolder text
+                            color: isMe ? Colors.black87 : Colors.whitee, 
+                            fontSize: 15.5, 
+                            fontWeight: isMe ? FontWeight.w500 : FontWeight.w400,
+                            height: 1.4,
                           ),
                         ),
                   ),
@@ -392,55 +380,117 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               },
             ),
           ),
-          
-          // Animated Emoji Layer (Simplistic representation)
-          FadeTransition(
-            opacity: _emojiAnimController,
-            child: ScaleTransition(
-              scale: _emojiAnimController,
-              child: const Align(
-                alignment: Alignment.bottomRight,
-                child: Padding(
-                  padding: EdgeInsets.only(right: 20.0, bottom: 80.0),
-                  child: Text("✨", style: TextStyle(fontSize: 30)),
-                )
-              ),
-            ),
-          ),
-
-          isSubscribed ? _buildChatInput() : _buildLockedInput()
+          isSubscribed ? _buildModernChatInput() : _buildLockedInput()
         ],
       ),
     );
   }
 
-  Widget _buildChatInput() {
+  // 🔴 NAYA: Sleek, Minimalistic Drawer
+  Widget _buildModernDrawer() {
+    return Drawer(
+      backgroundColor: const Color(0xFF131314),
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Edrol AI", style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 22, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white10,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text("Premium Active", style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(color: Colors.white10, height: 1),
+            const SizedBox(height: 10),
+            
+            _drawerItem(Icons.chat_bubble_outline_rounded, "New Chat", () {
+              setState(() { messages.clear(); });
+              Navigator.pop(context);
+            }),
+            _drawerItem(Icons.tune_rounded, "AI Model / Character", () {
+              Navigator.pop(context);
+              _showCustomCharacterDialog();
+            }),
+            _drawerItem(Icons.info_outline_rounded, "App Info", () {
+              Navigator.pop(context);
+            }),
+            
+            const Spacer(),
+            const Divider(color: Colors.white10, height: 1),
+            _drawerItem(Icons.delete_outline_rounded, "Clear History", () {
+              setState(() { messages.clear(); });
+              Navigator.pop(context);
+            }, isDestructive: true),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _drawerItem(IconData icon, String title, VoidCallback onTap, {bool isDestructive = false}) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+      leading: Icon(icon, color: isDestructive ? Colors.redAccent : Colors.white70, size: 22),
+      title: Text(title, style: TextStyle(color: isDestructive ? Colors.redAccent : Colors.white, fontSize: 15)),
+      onTap: onTap,
+    );
+  }
+
+  // 🔴 NAYA: Clean, Floating Chat Input Area
+  Widget _buildModernChatInput() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      color: Theme.of(context).scaffoldBackgroundColor,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: const BoxDecoration(
+        color: Color(0xFF131314),
+      ),
       child: SafeArea(
         child: Row(
           children: [
-            IconButton(
-              icon: const Icon(Icons.photo_library, color: Colors.white70),
-              onPressed: _pickImage,
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1F20),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white10),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.add_photo_alternate_outlined, color: Colors.white70, size: 22),
+                onPressed: _pickImage,
+              ),
             ),
+            const SizedBox(width: 8),
             Expanded(
-              child: TextField(
-                controller: _msgController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: "Type a message...",
-                  hintStyle: const TextStyle(color: Colors.white54),
-                  filled: true,
-                  fillColor: Theme.of(context).colorScheme.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(25),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1F20),
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(color: Colors.white10),
                 ),
-                onSubmitted: (_) => _sendMessage(),
+                child: TextField(
+                  controller: _msgController,
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  minLines: 1,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    hintText: "Type a message...",
+                    hintStyle: TextStyle(color: Colors.white38),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  ),
+                  onSubmitted: (_) => _sendMessage(),
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -450,7 +500,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 shape: BoxShape.circle,
               ),
               child: IconButton(
-                icon: const Icon(Icons.send, color: Colors.white),
+                icon: const Icon(Icons.send_rounded, color: Colors.black87, size: 20),
                 onPressed: _sendMessage,
               ),
             ),
@@ -462,13 +512,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   Widget _buildLockedInput() {
     return Container(
-      color: Colors.red.shade900,
+      width: double.infinity,
+      color: Colors.redAccent.withOpacity(0.1),
       padding: const EdgeInsets.all(15),
-      child: const Center(
-        child: Text(
-          "Your plan has expired! Please renew.",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+      child: const SafeArea(
+        child: Text("Premium Plan Expired.", textAlign: TextAlign.center, style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
       ),
     );
   }
