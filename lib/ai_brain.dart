@@ -16,7 +16,6 @@ class AditiBrain {
   final String baseFaceUrl = "https://raw.githubusercontent.com/edrtpyam-art/Aditibot/main/assets/images/aditi.jpg";
   final String secretCode = "@drtg267";
 
-  // 🔴 FIX: 'LlamaEngine' ki jagah naye package ke hisaab se 'Llama' class use karni hai
   late Llama engine;
   final translator = GoogleTranslator();
   
@@ -46,12 +45,12 @@ class AditiBrain {
       await Dio().download(modelUrl, filePath);
     }
 
-    // C. Model ko Phone ki Memory me start karna (Naya Initialization format)
-    // 🔴 FIX: Naye package me Llama ko initialize karne ka tareeqa badal gaya hai
+    // 🔴 FIX: '..context = 2048' hata diya gaya hai. 
+    // Ab ye direct default settings par bina error ke compile hoga.
     engine = Llama(
       filePath,
       modelParams: ModelParams(),
-      contextParams: ContextParams()..context = 2048, 
+      contextParams: ContextParams(), 
       samplerParams: SamplerParams(),
     );
   }
@@ -60,7 +59,6 @@ class AditiBrain {
   Stream<String> sendChatMessage(String userText) async* {
     String formattedPrompt = "<|im_start|>system\n$systemPrompt<|im_end|>\n<|im_start|>user\n$userText<|im_end|>\n<|im_start|>assistant\n";
     
-    // 🔴 FIX: engine.setPrompt aur engine.getNext() ka naya tarika use kiya hai
     engine.setPrompt(formattedPrompt);
     
     while (true) {
