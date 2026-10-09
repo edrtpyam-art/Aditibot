@@ -26,12 +26,11 @@ class AditiApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        // 🔴 NAYA: Modern Premium Dark Background (Gemini style)
         scaffoldBackgroundColor: const Color(0xFF131314), 
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFB388FF), // Premium Purple Accent
-          secondary: Color(0xFF1E1F20), // Chat Bubble / Surface
-          surface: Color(0xFF1E1F20), // Menu Background
+          primary: Color(0xFFB388FF), 
+          secondary: Color(0xFF1E1F20), 
+          surface: Color(0xFF1E1F20), 
         ),
         fontFamily: 'Roboto',
       ),
@@ -50,7 +49,11 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   bool isSubscribed = true;
   int daysLeft = 0;
+  
+  // 🔴 NAYA: Download State Variables
   bool isLoading = true;
+  String downloadStatus = "Initializing AI Engine...";
+  double downloadProgress = 0.0;
 
   final TextEditingController _msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -58,7 +61,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   List<Map<String, dynamic>> messages = [];
   
-  // Custom Character State
   String currentCharacterName = "Aditi";
   String currentCharacterRole = "Assistant";
 
@@ -84,9 +86,28 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   Future<void> _initializeApp() async {
     await _checkOfflineTimer();
-    setState(() {
-      isLoading = false;
-    });
+    
+    // 🔴 NAYA: AI Model Download Initialization with Live Progress
+    if (isSubscribed) {
+      await _brain.initialize(
+        onProgress: (status, progress) {
+          if (mounted) {
+            setState(() {
+              downloadStatus = status;
+              if (progress != null) {
+                downloadProgress = progress;
+              }
+            });
+          }
+        }
+      );
+    }
+
+    if (mounted) {
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   Future<void> _checkOfflineTimer() async {
@@ -198,7 +219,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 
-  // 🔴 NAYA: Character Setup Dialog (Clean UI)
   void _showCustomCharacterDialog() {
     String name = currentCharacterName;
     String role = currentCharacterRole;
@@ -217,7 +237,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 decoration: InputDecoration(
                   labelText: "Character Name", 
                   labelStyle: const TextStyle(color: Colors.white54),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                  enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
                   focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
                 ),
                 style: const TextStyle(color: Colors.white),
@@ -229,7 +249,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 decoration: InputDecoration(
                   labelText: "Role (e.g. GF, Boss, Teacher)", 
                   labelStyle: const TextStyle(color: Colors.white54),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                  enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
                   focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
                 ),
                 style: const TextStyle(color: Colors.white),
@@ -246,7 +266,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.black, // Dark text on light purple
+                foregroundColor: Colors.black, 
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               ),
               onPressed: () {
@@ -265,12 +285,77 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
+  // 🔴 NAYA: Professional Download & Loading Screen
+  Widget _buildLoadingScreen() {
+    return Scaffold(
+      backgroundColor: const Color(0xFF131314),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Glowing Progress Circle
+              Container(
+                width: 130,
+                height: 130,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.15), 
+                      blurRadius: 40, 
+                      spreadRadius: 10
+                    ),
+                  ]
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CircularProgressIndicator(
+                      value: downloadProgress > 0 ? downloadProgress : null,
+                      strokeWidth: 6,
+                      backgroundColor: Colors.white10,
+                      valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
+                      strokeCap: StrokeCap.round,
+                    ),
+                    Center(
+                      child: Text(
+                        "${(downloadProgress * 100).toStringAsFixed(0)}%",
+                        style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 40),
+              
+              // Status Text
+              Text(
+                downloadStatus,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 12),
+              
+              // Warning Text
+              const Text(
+                "First time setup. Please keep the app open.\nThis model runs 100% offline & private.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white38, fontSize: 13, height: 1.4),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 🔴 NAYA: Agar download chal raha hai, toh premium loading screen dikhao
     if (isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: Color(0xFFB388FF))),
-      );
+      return _buildLoadingScreen();
     }
 
     return Scaffold(
@@ -280,7 +365,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         iconTheme: const IconThemeData(color: Colors.white70),
         centerTitle: false,
         titleSpacing: 0,
-        // 🔴 NAYA: Gemini Pro jaisa Dropdown Title
         title: InkWell(
           onTap: _showCustomCharacterDialog,
           borderRadius: BorderRadius.circular(20),
@@ -300,7 +384,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           ),
         ),
         actions: [
-          // 🔴 NAYA: Real Notification Icon
           IconButton(
             icon: const Icon(Icons.notifications_none_rounded, color: Colors.white70),
             onPressed: () {
@@ -313,7 +396,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           const SizedBox(width: 8),
         ],
       ),
-      drawer: _buildModernDrawer(), // Naya modern drawer call ho raha hai
+      drawer: _buildModernDrawer(), 
       body: Column(
         children: [
           Expanded(
@@ -355,7 +438,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.85),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      // 🔴 NAYA: Premium Purple Bubble for User, Dark Grey for AI
                       color: isMe ? Theme.of(context).colorScheme.primary.withOpacity(0.9) : Theme.of(context).colorScheme.secondary,
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(20),
@@ -386,7 +468,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  // 🔴 NAYA: Sleek, Minimalistic Drawer
   Widget _buildModernDrawer() {
     return Drawer(
       backgroundColor: const Color(0xFF131314),
@@ -449,7 +530,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  // 🔴 NAYA: Clean, Floating Chat Input Area
   Widget _buildModernChatInput() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
