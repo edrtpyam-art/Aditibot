@@ -369,7 +369,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       : Text(
                           msg["text"],
                           style: TextStyle(
-                            color: isMe ? Colors.black87 : Colors.whitee, 
+                            color: isMe ? Colors.black87 : Colors.white, 
                             fontSize: 15.5, 
                             fontWeight: isMe ? FontWeight.w500 : FontWeight.w400,
                             height: 1.4,
