@@ -18,7 +18,7 @@ dependencies:
   firebase_database: ^10.5.0   # 👈 Live Brain aur Rules Update ke liye
   image_picker: ^1.1.2         # Image pick karne ke liye
   translator: ^0.3.3           # 👈 Hinglish se English Translate karne ke liye (Image Gen)
-    llama_cpp_dart: any
+  llama_cpp_dart: any
       # 👈 Offline Chat Brain (Qwen GGUF) chalane ke liye
 
 dev_dependencies:
