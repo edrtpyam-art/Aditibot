@@ -17,7 +17,9 @@ dependencies:
   firebase_core: ^2.32.0       # 👈 Edrolai Firebase Connect karne ke liye
   firebase_database: ^10.5.0   # 👈 Live Brain aur Rules Update ke liye
   image_picker: ^1.1.2         # Image pick karne ke liye
-  translator: any          # 👈 Hinglish se English Translate karne ke liye (Image Gen)
+  translator: any 
+  llama_cpp_dart: ^0.0.5
+  # 👈 Hinglish se English Translate karne ke liye (Image Gen)
 
 dev_dependencies:
   flutter_test:
