@@ -17,7 +17,7 @@ dependencies:
   firebase_core: ^2.32.0       # 👈 Edrolai Firebase Connect karne ke liye
   firebase_database: ^10.5.0   # 👈 Live Brain aur Rules Update ke liye
   image_picker: ^1.1.2         # Image pick karne ke liye
-  translator: ^0.3.3           # 👈 Hinglish se English Translate karne ke liye (Image Gen)
+  translator: any          # 👈 Hinglish se English Translate karne ke liye (Image Gen)
   llama_cpp_dart: any
       # 👈 Offline Chat Brain (Qwen GGUF) chalane ke liye
 
