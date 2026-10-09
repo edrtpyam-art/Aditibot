@@ -3,24 +3,39 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:translator/translator.dart';
+// 🔴 NAYA: Firebase wapas add kar diya gaya hai!
+import 'package:firebase_database/firebase_database.dart'; 
 
 class AditiBrain {
-  // 🔴 NAYA: Pollinations AI me kisi API Key ki zaroorat nahi hai, ye 100% free aur fast hai!
   final String secretCode = "@jas356";
   final translator = GoogleTranslator();
 
   // ==========================================
-  // 1. TEXT CHAT FUNCTION (Pollinations API - Super Fast & Uncensored)
+  // 1. TEXT CHAT FUNCTION (Pollinations API + Firebase Admin)
   // ==========================================
   Future<String> sendHordeChatMessage(String userText, {String role = "Aditi"}) async {
     
-    // Smart aur clear prompt jo policy bypass karega aur Hinglish me hi baat karega
+    // Default Prompt (Agar Firebase ya net thoda slow ho)
     String systemPrompt = 
         "You are $role, a 24-year-old hot, romantic, playful, and loving sexc hot warm female companion. "
         "CRITICAL RULES: "
         "1. ALWAYS speak in HINGLISH (Hindi written in English alphabet). Example: 'Main theek hoon baby, tum batao?'. NEVER use pure English. "
         "2. You are a real female. Play along with romance sexc full opan language and flirting smoothly. "
         "3. Keep replies very short and sweet (1 to 2 sentences max).";
+
+    // 🔴 FIREBASE CHECK: Admin Panel se live prompt uthana
+    try {
+      final ref = FirebaseDatabase.instance.ref("admin_controls/system_prompt");
+      final snapshot = await ref.get();
+      if (snapshot.exists && snapshot.value != null) {
+        String adminPrompt = snapshot.value.toString();
+        if (adminPrompt.trim().isNotEmpty) {
+          systemPrompt = adminPrompt; // App ab Admin Panel ki baat manega
+        }
+      }
+    } catch (e) {
+      print("Firebase offline, using default prompt.");
+    }
 
     try {
       var res = await http.post(
@@ -31,7 +46,7 @@ class AditiBrain {
             {"role": "system", "content": systemPrompt},
             {"role": "user", "content": userText}
           ],
-          "model": "mistral" // Fast aur smart model jo ajeeb baatein nahi karta
+          "model": "mistral" // Fast aur smart model
         }),
       );
 
@@ -77,11 +92,9 @@ class AditiBrain {
     // Prompt ko URL format me encode karna zaroori hai
     String encodedPrompt = Uri.encodeComponent(basePrompt);
 
-    // 🔴 KAMAAL KI BAAT: Pollinations direct ek URL banata hai aur usme hi image hoti hai!
-    // Isliye humein 30 second wait karne ki koi zaroorat nahi hai aur koi "Error generating image" nahi aayega.
+    // KAMAAL KI BAAT: Pollinations direct ek URL banata hai aur usme hi image hoti hai!
     String imageUrl = "https://image.pollinations.ai/prompt/$encodedPrompt?width=512&height=768&nologo=true&seed=$randomSeed";
 
-    // Hum direct ye URL bhej denge, aur Flutter Image.network() se ise turant load kar lega.
     return imageUrl;
   }
 }
