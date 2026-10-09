@@ -1,61 +1,115 @@
-// File: lib/payment_api.dart
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:flutter/material.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class PaymentAPI {
-  // 🔴 Tera naya Firebase Database URL (Vercel hata diya hai)
-  static const String dbUrl = "https://edro-e45a8-default-rtdb.firebaseio.com/edrol_config/payment_system.json";
+class PaymentController {
+  final _dbRef = FirebaseDatabase.instance.ref("payment_settings");
 
-  // 1. Live Plan & Timer Check Karne Ka Function (Local Sub + Firebase Status)
-  static Future<Map<String, dynamic>> checkUserSubscription() async {
-    try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      bool hasActiveSub = prefs.getBool('has_active_sub') ?? false;
+  // 1. FREE TRIAL LOGIC (App install hote hi chalega)
+  Future<void> checkAndApplyFreeTrial() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool isNewUser = prefs.getBool('is_new_user') ?? true;
 
-      // Agar user ne pay kar diya hai (Premium member hai)
-      if (hasActiveSub) {
-        return {
-          "is_active": true, 
-          "trial_hours": 48, 
-          "message": "Premium Unlocked"
-        };
-      }
+    if (isNewUser) {
+      final snapshot = await _dbRef.child("free_trial_hours").get();
+      int trialHours = (snapshot.value as int?) ?? 24; // Default 24 ghante
 
-      // Varna Firebase se check karo ki Admin ne payment ON rakhi hai ya OFF aur Timer kya hai
-      final response = await http.get(Uri.parse(dbUrl));
-      if (response.statusCode == 200) {
-        var data = jsonDecode(response.body);
-        bool isSystemActive = data['is_active'] ?? false;
-        
-        // 🔴 NAYA UPDATE: Admin Panel se set kiya hua Dynamic Timer fetch kar raha hai
-        int dynamicTrialHours = data['trial_hours'] ?? 48; 
-        
-        return {
-          "is_active": isSystemActive, // Agar false hai, matlab app free chalne do
-          "trial_hours": dynamicTrialHours, // 🔴 Naya Timer (1hr, 24hr, 168hr) pass ho raha hai
-          "message": isSystemActive ? "Trial Expired! Upgrade needed." : "Free Mode Active"
-        };
-      }
-      return {"is_active": false, "trial_hours": 48, "message": "Server error!"};
-    } catch (e) {
-      return {"is_active": false, "trial_hours": 48, "message": "Internet Error"};
+      DateTime expiryDate = DateTime.now().add(Duration(hours: trialHours));
+      await prefs.setString('expiry_date', expiryDate.toIso8601String());
+      await prefs.setBool('is_new_user', false); 
+      print("Free Trial Activated for $trialHours hours!");
     }
   }
 
-  // 2. Live Pricing List Lane Ka Function (Direct Firebase se)
-  static Future<List<dynamic>> getLivePlans() async {
-    try {
-      final response = await http.get(Uri.parse(dbUrl));
-      if (response.statusCode == 200) {
-        var data = jsonDecode(response.body);
-        if (data != null && data['plans'] != null) {
-          return data['plans']; // Ye Firebase se direct [ {name: "PRO", price: "₹499"} ] return karega
-        }
-      }
-      return [];
-    } catch (e) {
-      return [];
+  // 2. CHECK PAYWALL & SHOW POPUP
+  Future<void> showPaywallIfNeeded(BuildContext context) async {
+    final snapshot = await _dbRef.get();
+    
+    if (snapshot.exists) {
+      var data = snapshot.value as Map<dynamic, dynamic>;
+      
+      // Kill Switch: Agar admin ne payment off ki hai, to free chalega
+      bool isPaymentEnabled = data['is_payment_enabled'] ?? true;
+      if (!isPaymentEnabled) return; 
+
+      Map<dynamic, dynamic> plans = data['plans'] ?? {};
+      String paymentLink = data['payment_link'] ?? ""; // Aapka Cosmofeed Link
+
+      _showPlansBottomSheet(context, plans, paymentLink);
     }
+  }
+
+  // 3. UI: DYNAMIC PLANS BOTTOM SHEET
+  void _showPlansBottomSheet(BuildContext context, Map<dynamic, dynamic> plans, String paymentLink) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false, // Bina pay kiye back nahi ja payega
+      backgroundColor: Colors.grey.shade900,
+      builder: (context) {
+        return Container(
+          padding: EdgeInsets.all(20),
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: Column(
+            children: [
+              Text("Unlock Aditi ❤️", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+              SizedBox(height: 10),
+              Text("Your free trial has ended. Choose a plan to continue chatting.", 
+                   textAlign: TextAlign.center, style: TextStyle(color: Colors.white70)),
+              SizedBox(height: 20),
+              
+              Expanded(
+                child: ListView.builder(
+                  itemCount: plans.length,
+                  itemBuilder: (context, index) {
+                    String key = plans.keys.elementAt(index);
+                    var plan = plans[key];
+
+                    return Card(
+                      color: Colors.pink.shade900,
+                      child: ListTile(
+                        title: Text(plan['name'], style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        subtitle: Text("Validity: ${plan['validity_hours']} Hours", style: TextStyle(color: Colors.white70)),
+                        trailing: Text(plan['price'], style: TextStyle(color: Colors.greenAccent, fontSize: 18, fontWeight: FontWeight.bold)),
+                        onTap: () {
+                          // Plan par click karte hi gateway open hoga
+                          _openPaymentGateway(paymentLink);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+              
+              // Temporary button for Testing/Manual Approval (Aap isko baad me hata sakte hain)
+              TextButton(
+                onPressed: () => _manualUnlockForTesting(context), 
+                child: Text("I have paid (Verify)", style: TextStyle(color: Colors.grey))
+              )
+            ],
+          ),
+        );
+      }
+    );
+  }
+
+  // 4. URL LAUNCHER (Cosmofeed open karne ke liye)
+  Future<void> _openPaymentGateway(String url) async {
+    Uri paymentUri = Uri.parse(url);
+    if (await canLaunchUrl(paymentUri)) {
+      await launchUrl(paymentUri, mode: LaunchMode.externalApplication); // Browser me khulega
+    } else {
+      print("Could not open payment link.");
+    }
+  }
+
+  // 5. TEST/MANUAL UNLOCK (Kyuki external link direct app ko nahi batata ki payment hui ya nahi)
+  Future<void> _manualUnlockForTesting(BuildContext context) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    DateTime newExpiry = DateTime.now().add(Duration(hours: 24)); // 24 ghante add kar diye
+    await prefs.setString('expiry_date', newExpiry.toIso8601String());
+    
+    Navigator.pop(context); // Popup band
   }
 }
