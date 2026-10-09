@@ -8,29 +8,22 @@ import 'package:translator/translator.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 class AditiBrain {
-  // 1. Aapka Offline Qwen Chat Model Link
   final String modelUrl = "https://huggingface.co/mradermacher/Qwen2.5-1.5B-Instruct-uncensored-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-uncensored.Q4_K_M.gguf";
-  
-  // 2. Aapki AI Horde API Key aur Image Setup
   final String apiKey = "FOfq-7UzBCB4QehqNSqF0A";
   final String baseFaceUrl = "https://raw.githubusercontent.com/edrtpyam-art/Aditibot/main/assets/images/aditi.jpg";
   final String secretCode = "@drtg267";
 
   late Llama engine;
   final translator = GoogleTranslator();
-  
-  // Default system prompt
   String systemPrompt = "You are Aditi, a hot sexc romantic desi girlfriend. Always reply in Hinglish.";
 
-// ... baki code same rahega ...
- // 🔴 NAYA: onProgress callback add kiya
-  Future<void> initialize({Function(String)? onProgress}) async {
+  // 🔴 NAYA: Progress percentage (double) bhi bhejenge progress bar ke liye
+  Future<void> initialize({Function(String, double?)? onProgress}) async {
     try {
       final ref = FirebaseDatabase.instance.ref("admin_controls/system_prompt");
       final snapshot = await ref.get();
       if (snapshot.exists) {
         systemPrompt = snapshot.value.toString();
-        print("Admin Prompt Loaded: $systemPrompt");
       }
     } catch (e) {
       print("Firebase offline, using default prompt.");
@@ -41,44 +34,46 @@ class AditiBrain {
 
     if (!await File(filePath).exists()) {
       print("Downloading Offline AI Brain...");
-      if (onProgress != null) {
-        onProgress("AI Brain download ho raha hai... (0%)");
-      }
+      if (onProgress != null) onProgress("AI Brain download shuru ho raha hai...", 0.0);
       
-      // 🔴 NAYA: Dio ka onReceiveProgress use karke % nikalna
       await Dio().download(
         modelUrl, 
         filePath,
         onReceiveProgress: (received, total) {
           if (total != -1 && onProgress != null) {
-            String percentage = (received / total * 100).toStringAsFixed(0);
-            onProgress("AI Brain download ho raha hai... ($percentage%)");
+            double progressValue = received / total;
+            String percentage = (progressValue * 100).toStringAsFixed(0);
+            // Progress bar ki value aur text dono bhej rahe hain
+            onProgress("AI Brain download ho raha hai... ($percentage%)", progressValue);
           }
         }
       );
     }
     
     if (onProgress != null) {
-      onProgress("AI ko load kiya ja raha hai... ❤️");
+      onProgress("AI ko memory me load kiya ja raha hai... ❤️\n(Isme thoda time lag sakta hai)", 1.0);
     }
 
-    engine = Llama(
-      filePath,
-      modelParams: ModelParams(),
-      contextParams: ContextParams(), 
-      samplerParams: SamplerParams(),
-    );
+    // 🔴 CRASH FIX: 1 second ka delay taaki 100% ka animation pura ho sake
+    // aur app freeze na ho jab Llama engine load ho raha ho.
+    await Future.delayed(const Duration(seconds: 1));
+
+    try {
+      engine = Llama(
+        filePath,
+        modelParams: ModelParams(),
+        contextParams: ContextParams(), 
+        samplerParams: SamplerParams(),
+      );
+    } catch (e) {
+      print("AI Load Error: $e");
+      if (onProgress != null) onProgress("AI load hone me error aayi!", 0.0);
+    }
   }
 
-// ... baki code same rahega ...
-
-
-  // CHAT FUNCTION (100% Offline)
   Stream<String> sendChatMessage(String userText) async* {
     String formattedPrompt = "<|im_start|>system\n$systemPrompt<|im_end|>\n<|im_start|>user\n$userText<|im_end|>\n<|im_start|>assistant\n";
-    
     engine.setPrompt(formattedPrompt);
-    
     while (true) {
       var (token, done) = engine.getNext();
       if (done) break;
@@ -86,26 +81,22 @@ class AditiBrain {
     }
   }
 
-  // PHOTO GENERATOR (Hinglish -> English -> Translation -> Horde API)
   Future<String?> generateRomanticPhoto(String hinglishPrompt) async {
     bool useBaseFace = true;
     String finalEnglishPrompt = "";
 
-    // 1. Secret Code Check (@drtg267)
     if (hinglishPrompt.contains(secretCode)) {
-      useBaseFace = false; // Code mil gaya! Doosra face banega.
+      useBaseFace = false; 
       hinglishPrompt = hinglishPrompt.replaceAll(secretCode, "").trim();
     }
 
-    // 2. Hinglish to English Translate karna
     try {
       var translation = await translator.translate(hinglishPrompt, to: 'en');
       finalEnglishPrompt = translation.text;
     } catch (e) {
-      finalEnglishPrompt = hinglishPrompt; // Failsafe
+      finalEnglishPrompt = hinglishPrompt; 
     }
 
-    // 3. GitHub se Aditi ka Base64 Face nikalna (Agar zaroorat ho)
     String? base64Image;
     if (useBaseFace) {
       try {
@@ -116,7 +107,6 @@ class AditiBrain {
       }
     }
 
-    // 4. AI Horde Prompt Setup
     String hordePrompt = useBaseFace 
         ? "1girl, exact same face as source image, beautiful, highly detailed, " + finalEnglishPrompt 
         : "highly detailed, " + finalEnglishPrompt; 
@@ -124,7 +114,7 @@ class AditiBrain {
     Map<String, dynamic> payload = {
       "prompt": hordePrompt,
       "params": {"n": 1, "steps": 25, "width": 512, "height": 768},
-      "nsfw": true, // Policy bypass
+      "nsfw": true,
       "models": ["epicrealism"]
     };
 
@@ -133,7 +123,6 @@ class AditiBrain {
       payload["source_processing"] = "img2img";
     }
 
-    // 5. API Request aur Polling
     try {
       var generateRes = await http.post(
         Uri.parse('https://aihorde.net/api/v2/generate/async'),
@@ -143,14 +132,12 @@ class AditiBrain {
 
       if (generateRes.statusCode == 202) {
         String jobId = jsonDecode(generateRes.body)['id'];
-        
         while (true) {
-          await Future.delayed(Duration(seconds: 4)); 
+          await Future.delayed(const Duration(seconds: 4)); 
           var statusRes = await http.get(
             Uri.parse('https://aihorde.net/api/v2/generate/status/$jobId'),
             headers: {'apikey': apiKey},
           );
-
           if (statusRes.statusCode == 200) {
             var statusData = jsonDecode(statusRes.body);
             if (statusData['done'] == true) {
