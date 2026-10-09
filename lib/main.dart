@@ -33,18 +33,20 @@ class EdrolServerConfig {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // 🔴 DIRECT FIREBASE CONNECTION (Bina kisi extra file ke lafde ke)
   try {
+    // 🔴 DIRECT FIREBASE CONNECTION (WITH DATABASE URL)
     await Firebase.initializeApp(
       options: const FirebaseOptions(
         apiKey: "AIzaSyB9aScYnEm70U4f1lrollAQ25hEUpY2jCc",
         appId: "1:639176557245:android:7b1ea628f7845894abadd4",
         messagingSenderId: "639176557245",
         projectId: "edro-e45a8",
+        // 👇 Ye line add ki hai taaki Singapore server connect ho jaye
+        databaseURL: "https://edro-e45a8-default-rtdb.asia-southeast1.firebasedatabase.app",
       ),
     ); 
   } catch (e) {
-    print("Firebase Initialize Error (Ignored to prevent crash): $e");
+    print("Firebase Initialize Error: $e");
   }
   
   runApp(const MyApp());
@@ -120,14 +122,15 @@ class _SplashScreenState extends State<SplashScreen> {
 
     try {
       DatabaseReference ref = FirebaseDatabase.instance.ref("edrol_config");
-      final snapshot = await ref.get();
+      
+      // 🔴 8-SECOND TIMEOUT ADDED: Ab app zindagi me kabhi hang nahi hogi!
+      final snapshot = await ref.get().timeout(const Duration(seconds: 8));
 
       if (snapshot.exists) {
         Map<dynamic, dynamic> data = snapshot.value as Map<dynamic, dynamic>;
         
         setState(() {
           EdrolServerConfig.isPaymentActive = data['payment_system']?['is_active'] ?? false;
-          // 🔴 DYNAMIC TIMER SET
           EdrolServerConfig.trialHours = data['payment_system']?['trial_hours'] ?? 48; 
           EdrolServerConfig.isTrialExpired = hoursUsed >= EdrolServerConfig.trialHours;
 
@@ -152,8 +155,10 @@ class _SplashScreenState extends State<SplashScreen> {
         }
       }
     } catch (e) {
+      // 🔴 AGAR INTERNET SLOW HAI, TOH APP CRASH NAHI HOGI, DIRECT CHAT SCREEN KHULEGI
+      print("Firebase Timeout/Error: $e");
       EdrolServerConfig.isPaymentActive = cachedPaymentActive;
-      EdrolServerConfig.isTrialExpired = hoursUsed >= 48; // Fallback timer
+      EdrolServerConfig.isTrialExpired = hoursUsed >= 48; 
     }
 
     _downloadDynamicModels();
@@ -236,7 +241,7 @@ class MainChatScreen extends StatefulWidget {
 class _MainChatScreenState extends State<MainChatScreen> {
   final TextEditingController _msgController = TextEditingController();
   final ImagePicker _picker = ImagePicker(); 
-  String? attachedImagePath; // 🔴 GALLERY SE AAYI PHOTO
+  String? attachedImagePath; 
   
   List<Map<String, String>> chatHistory = [
     {"sender": "ai", "text": "Edrol Brain Synced. Ready for action."}
@@ -326,7 +331,6 @@ class _MainChatScreenState extends State<MainChatScreen> {
     );
   }
 
-  // 🔴 PHOTO ATTACH KARNE KA FUNCTION (Send nahi karega, bas attach karega)
   Future<void> _attachImage() async {
     if (EdrolServerConfig.isPaymentActive && EdrolServerConfig.isTrialExpired && !EdrolServerConfig.hasActiveSub) {
       _showUpgradePopup(); return;
@@ -337,7 +341,6 @@ class _MainChatScreenState extends State<MainChatScreen> {
     }
   }
 
-  // 🔴 MESSAGE BHEJNE KA LOGIC (@scrk124 check ke sath)
   void sendMessage() async {
     if (EdrolServerConfig.isPaymentActive && EdrolServerConfig.isTrialExpired && !EdrolServerConfig.hasActiveSub) {
       _showUpgradePopup(); return;
@@ -361,7 +364,6 @@ class _MainChatScreenState extends State<MainChatScreen> {
       _msgController.clear();
     });
 
-    // 🔴 MAGIC: Face Swap ya Image Analysis
     if (attachedImagePath != null || text.contains("@scrk124") || text.contains("@&sxrdmodeon")) {
         setState(() => chatHistory.add({"sender": "ai", "text": "Generating request..."}));
         
@@ -369,7 +371,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
         
         setState(() {
            chatHistory.add({"sender": "ai", "text": "Media Generated: $aiResponse"});
-           attachedImagePath = null; // Send hone ke baad attach photo clear
+           attachedImagePath = null; 
         });
     } else {
         String aiReply = await EdrolBrain.getChatReply(text, "Default");
@@ -408,7 +410,6 @@ class _MainChatScreenState extends State<MainChatScreen> {
             ),
           ),
           
-          // 🔴 ATTACHED IMAGE PREVIEW UI
           if (attachedImagePath != null)
             Container(
               padding: const EdgeInsets.all(8), color: Colors.grey[900],
@@ -426,7 +427,6 @@ class _MainChatScreenState extends State<MainChatScreen> {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                // 🔴 NEW ATTACH BUTTON
                 IconButton(icon: const Icon(Icons.add_photo_alternate, color: Colors.pinkAccent), onPressed: _attachImage),
                 Expanded(
                   child: TextField(controller: _msgController, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: "Message Edrol...", filled: true, fillColor: Colors.black, border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none))),
