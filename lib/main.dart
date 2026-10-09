@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_core/firebase_core.dart'; // Admin panel ke liye zaroori
+import 'package:firebase_core/firebase_core.dart';
 
 void main() async {
-  // App start hote hi Firebase aur background settings load karna
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(); 
+  
+  // 🔴 CRASH-PROOF FIX: Agar Firebase load hone me error de, 
+  // toh bhi app freeze nahi hoga aur seedha chal padega!
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    print("Firebase init error: $e");
+  }
+
   runApp(AditiApp());
 }
 
@@ -13,9 +20,9 @@ class AditiApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Aditi AI',
+      title: 'Edrol AI',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(), // Dark romantic theme
+      theme: ThemeData.dark(),
       home: ChatScreen(),
     );
   }
