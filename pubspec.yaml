@@ -12,12 +12,13 @@ dependencies:
   dio: ^5.3.3                  # Downloading models ke liye
   path_provider: ^2.1.1        # Phone me save karne ke liye
   http: ^1.2.0                 # API calls ke liye
-  shared_preferences: ^2.2.2   # 👈 Offline 48-hour Timer ke liye
+  shared_preferences: ^2.2.2   # 👈 Offline Timer ke liye
   url_launcher: ^6.2.1         # 👈 Cosmofeed Payment Link kholne ke liye
   firebase_core: ^2.32.0       # 👈 Edrolai Firebase Connect karne ke liye
-  firebase_database: ^10.5.0 
-  image_picker: ^1.1.2  
-  # 👈 Live Brain aur Rules Update ke liye
+  firebase_database: ^10.5.0   # 👈 Live Brain aur Rules Update ke liye
+  image_picker: ^1.1.2         # Image pick karne ke liye
+  translator: ^0.3.3           # 👈 Hinglish se English Translate karne ke liye (Image Gen)
+  llama_cpp_dart: ^0.1.6       # 👈 Offline Chat Brain (Qwen GGUF) chalane ke liye
 
 dev_dependencies:
   flutter_test:
@@ -35,4 +36,4 @@ flutter:
   assets:
     - assets/images/logo1.png
     - assets/images/logo2.png
-  
+    - assets/images/aditi.jpg 
