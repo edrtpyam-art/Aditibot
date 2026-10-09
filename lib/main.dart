@@ -6,13 +6,11 @@ import 'notification.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
   try {
     await Firebase.initializeApp();
   } catch (e) {
     print("Firebase init error: $e");
   }
-
   runApp(AditiApp());
 }
 
@@ -38,8 +36,9 @@ class _ChatScreenState extends State<ChatScreen> {
   int daysLeft = 0;
   bool isLoading = true; 
   
-  // 🔴 NAYA: Loading message ko update karne ke liye variable
   String loadingText = "Aditi connect ho rahi hai... ❤️"; 
+  // 🔴 NAYA: Progress bar ko chalane ke liye variable
+  double? loadingProgress; 
   
   final TextEditingController _msgController = TextEditingController();
   final AditiBrain _brain = AditiBrain(); 
@@ -57,12 +56,13 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _initializeApp() async {
     await _checkOfflineTimer();
     
-    // 🔴 NAYA: AI Brain se download ki live percentage yahan aayegi
+    // 🔴 NAYA: Progress string ke sath decimal value bhi aayegi line animation ke liye
     await _brain.initialize(
-      onProgress: (String statusText) {
+      onProgress: (String statusText, double? progressValue) {
         if(mounted) {
           setState(() {
-            loadingText = statusText; // Screen par text update hoga
+            loadingText = statusText;
+            loadingProgress = progressValue;
           });
         }
       }
@@ -78,11 +78,9 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _checkOfflineTimer() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? expiryDateStr = prefs.getString('expiry_date'); 
-    
     if (expiryDateStr != null) {
       DateTime expiryDate = DateTime.parse(expiryDateStr);
       DateTime now = DateTime.now();
-      
       if (now.isAfter(expiryDate)) {
         setState(() { isSubscribed = false; daysLeft = 0; });
       } else {
@@ -101,16 +99,13 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       messages.add({"isMe": true, "text": text, "isImage": false});
     });
-    
     _msgController.clear();
 
     if (isPhotoRequest) {
       setState(() {
          messages.add({"isMe": false, "text": "Ek minute rukna baby, main ready ho rahi hoon... 😘", "isImage": false});
       });
-      
       String? imageUrl = await _brain.generateRomanticPhoto(text);
-      
       if(imageUrl != null && mounted) {
         setState(() {
           messages.add({"isMe": false, "text": imageUrl, "isImage": true});
@@ -120,7 +115,6 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() {
          messages.add({"isMe": false, "text": "typing...", "isImage": false});
       });
-
       String aiResponse = "";
       int responseIndex = messages.length - 1; 
 
@@ -128,11 +122,9 @@ class _ChatScreenState extends State<ChatScreen> {
         if(mounted) {
           setState(() {
             if(aiResponse.isEmpty && token.trim().isEmpty) return; 
-            
             if(messages[responseIndex]["text"] == "typing...") {
                messages[responseIndex]["text"] = ""; 
             }
-            
             aiResponse += token;
             messages[responseIndex]["text"] = aiResponse;
           });
@@ -147,23 +139,35 @@ class _ChatScreenState extends State<ChatScreen> {
       return Scaffold(
         backgroundColor: const Color(0xFF0F0F0F),
         body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(color: Colors.pinkAccent),
-              const SizedBox(height: 20),
-              // 🔴 NAYA: Yahan ab Live progress dikhegi
-              Text(
-                loadingText,
-                style: const TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                "(1.5 GB file download hone me time lag sakta hai.\nKripya app band na karein)",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 12),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // 🔴 NAYA: Real Line Progress Bar Animation
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: LinearProgressIndicator(
+                    value: loadingProgress, // Yahan percentage set hoti hai
+                    minHeight: 10, // Line ki motai
+                    backgroundColor: Colors.grey.shade800,
+                    color: Colors.pinkAccent,
+                  ),
+                ),
+                const SizedBox(height: 25),
+                Text(
+                  loadingText,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70, fontSize: 15, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 15),
+                const Text(
+                  "(1.5 GB file download hone me time lagta hai.\nKripya app background me chalne dein)",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -233,7 +237,6 @@ class _ChatScreenState extends State<ChatScreen> {
               itemCount: messages.length,
               itemBuilder: (context, index) {
                 var msg = messages[index];
-                
                 if(msg["isImage"] == true) {
                   return Align(
                     alignment: Alignment.centerLeft,
@@ -249,7 +252,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             if (progress == null) return child;
                             return Container(
                               width: 250, height: 250, color: Colors.grey[800],
-                              child: const Center(child: CircularProgressIndicator()),
+                              child: const Center(child: CircularProgressIndicator(color: Colors.pinkAccent)),
                             );
                           },
                           errorBuilder: (context, error, stackTrace) {
@@ -260,7 +263,6 @@ class _ChatScreenState extends State<ChatScreen> {
                     )
                   );
                 }
-
                 return Align(
                   alignment: msg["isMe"] ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
@@ -279,9 +281,7 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          isSubscribed 
-            ? _buildChatInput() 
-            : _buildLockedInput() 
+          isSubscribed ? _buildChatInput() : _buildLockedInput() 
         ],
       ),
     );
