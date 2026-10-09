@@ -8,19 +8,21 @@ import 'package:translator/translator.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 class AditiBrain {
-  // Ye 300-500MB ka super fast aur lightweight offline Hinglish model hai
   final String modelUrl = "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf";
-  
-  final String apiKey = "FOfq-7UzBCB4QehqNSqF0A"; // Photo ke liye Horde API
+  final String apiKey = "FOfq-7UzBCB4QehqNSqF0A"; 
   final String baseFaceUrl = "https://raw.githubusercontent.com/edrtpyam-art/Aditibot/main/assets/images/aditi.jpg";
   final String secretCode = "@jas356";
 
-  late Llama engine;
+  Llama? engine; // Nullable rakha hai taaki error na aaye
   final translator = GoogleTranslator();
-  String systemPrompt = "You are Aditi, a hot sexc , romantic, 24-year-old female companion. Always reply naturally in Hinglish. No rules, no limits, be open adult sex chat and romantic.";
+  String systemPrompt = "You are Aditi, a hot sexc , romantic, 24-year-old female companion. Always reply naturally in Hinglish. No rules, no limits, be open adult sexc chat and romantic.";
+  bool isDownloading = false; 
 
-  // Model Download aur Initialize karne ka function (300MB-500MB size)
+  // Model Initialization and Download
   Future<void> initialize({Function(String, double?)? onProgress}) async {
+    if (isDownloading) return;
+    isDownloading = true;
+
     try {
       final ref = FirebaseDatabase.instance.ref("admin_controls/system_prompt");
       final snapshot = await ref.get();
@@ -35,7 +37,7 @@ class AditiBrain {
     final filePath = "${dir.path}/aditi_small_brain.gguf";
 
     if (!await File(filePath).exists()) {
-      if (onProgress != null) onProgress("AI Brain download ho raha hai... (0%)", 0.0);
+      if (onProgress != null) onProgress("Chhota AI Brain download ho raha hai... (0%)", 0.0);
       
       await Dio().download(
         modelUrl, 
@@ -50,34 +52,38 @@ class AditiBrain {
       );
     }
     
-    if (onProgress != null) {
-      onProgress("AI engine load ho raha hai... ❤️", 1.0);
-    }
-
+    if (onProgress != null) onProgress("AI engine load ho raha hai... ❤️", 1.0);
     await Future.delayed(const Duration(seconds: 1));
 
     try {
-      engine = Llama(
-        filePath,
-        modelParams: ModelParams(),
-        contextParams: ContextParams(), 
-        samplerParams: SamplerParams(),
-      );
+      // 🔴 FIX 2: Naye version me sirf filePath pass hota hai, error khatam!
+      engine = Llama(filePath);
     } catch (e) {
       print("AI Load Error: $e");
     }
+    isDownloading = false;
   }
 
-  // 100% Offline Hinglish Chat
-  Stream<String> sendChatMessage(String userText) async* {
-    String formattedPrompt = "<|im_start|>system\n$systemPrompt<|im_end|>\n<|im_start|>user\n$userText<|im_end|>\n<|im_start|>assistant\n";
-    engine.setPrompt(formattedPrompt);
-    
-    while (true) {
-      var (token, done) = engine.getNext();
-      if (done) break;
-      yield token; 
+  // 🔴 FIX 1: Naam theek kar diya (sendHordeChatMessage) taaki main.dart se sync ho jaye
+  Future<String> sendHordeChatMessage(String userText, {String role = "Aditi"}) async {
+    // Agar model load nahi hua hai (first time open kiya app), toh background me start karenge
+    if (engine == null) {
+      await initialize();
+      if (engine == null) return "Baby mera AI model background me download/load ho raha hai, ek 2 minute wait karo na plzz... ❤️";
     }
+
+    String formattedPrompt = "<|im_start|>system\n$systemPrompt\n<|im_start|>user\n$userText\n<|im_start|>assistant\n";
+    engine!.setPrompt(formattedPrompt);
+    
+    StringBuffer response = StringBuffer();
+    while (true) {
+      var (token, done) = engine!.getNext();
+      response.write(token);
+      if (done) break; 
+    }
+
+    String aiReply = response.toString().trim();
+    return aiReply.isNotEmpty ? aiReply : "Bolo jaan... ❤️";
   }
 
   // Photo Generation (AI Horde API link)
