@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart'; // Admin panel ke liye zaroori
 
-void main() => runApp(AditiApp());
+void main() async {
+  // App start hote hi Firebase aur background settings load karna
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(); 
+  runApp(AditiApp());
+}
 
 class AditiApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Aditi AI',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(), // Dark romantic theme
       home: ChatScreen(),
     );
@@ -22,6 +29,14 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   bool isSubscribed = true;
   int daysLeft = 0;
+  
+  // Message type karne ke liye controller
+  final TextEditingController _msgController = TextEditingController();
+  
+  // Chat history screen par dikhane ke liye list
+  List<Map<String, dynamic>> messages = [
+    {"isMe": false, "text": "Hii jaan, kya kar rahe ho? ❤️", "isImage": false}
+  ];
 
   @override
   void initState() {
@@ -46,6 +61,28 @@ class _ChatScreenState extends State<ChatScreen> {
           daysLeft = expiryDate.difference(now).inDays;
         });
       }
+    }
+  }
+
+  // User ka message send karne ka function
+  void _sendMessage(bool isPhotoRequest) {
+    String text = _msgController.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() {
+      // User ka message screen par dikhao
+      messages.add({"isMe": true, "text": text, "isImage": false});
+    });
+    
+    _msgController.clear();
+
+    // YAHAN AI BRAIN KO CALL JAYEGI
+    if (isPhotoRequest) {
+      // ImageEngine.generateRomanticPhoto(text)... call hoga
+      print("Photo mangi hai: $text");
+    } else {
+      // AditiBrain.sendMessage(text)... call hoga
+      print("Chat bheji hai: $text");
     }
   }
 
@@ -76,7 +113,11 @@ class _ChatScreenState extends State<ChatScreen> {
               leading: Icon(Icons.add),
               title: Text("New Chat"),
               onPressed: () {
-                // Chat clear karo aur Aditi ka naya welcome message lao
+                setState(() {
+                  messages.clear();
+                  messages.add({"isMe": false, "text": "Bolo jaan, kya baat karni hai ab? 😘", "isImage": false});
+                });
+                Navigator.pop(context); // Menu band karne ke liye
               },
             ),
             Divider(),
@@ -84,7 +125,6 @@ class _ChatScreenState extends State<ChatScreen> {
               padding: const EdgeInsets.all(8.0),
               child: Text("Chat History", style: TextStyle(color: Colors.grey)),
             ),
-            // Example of a Chat History Item with Delete Option
             ListTile(
               title: Text("Late night talks..."),
               trailing: IconButton(
@@ -101,14 +141,33 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView(
-              // Yahan aapke chat bubbles aayenge
+            child: ListView.builder(
+              padding: EdgeInsets.all(10),
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                var msg = messages[index];
+                return Align(
+                  alignment: msg["isMe"] ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    margin: EdgeInsets.symmetric(vertical: 5),
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: msg["isMe"] ? Colors.pink.shade700 : Colors.grey.shade800,
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Text(
+                      msg["text"],
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
           // CHAT INPUT YA LOCK SCREEN
           isSubscribed 
-            ? _buildChatInput() // Agar plan hai toh type karne do
-            : _buildLockedInput() // Agar expire ho gaya toh lock kar do
+            ? _buildChatInput() 
+            : _buildLockedInput() 
         ],
       ),
     );
@@ -120,10 +179,23 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Row(
         children: [
           Expanded(
-            child: TextField(decoration: InputDecoration(hintText: "Message Aditi...")),
+            child: TextField(
+              controller: _msgController,
+              decoration: InputDecoration(
+                hintText: "Message Aditi...",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
+                contentPadding: EdgeInsets.symmetric(horizontal: 15),
+              ),
+            ),
           ),
-          IconButton(icon: Icon(Icons.image), onPressed: () {}), // Photo request
-          IconButton(icon: Icon(Icons.send), onPressed: () {}), // Send msg
+          IconButton(
+            icon: Icon(Icons.image, color: Colors.pinkAccent), 
+            onPressed: () => _sendMessage(true) // Photo wali request bhejo
+          ), 
+          IconButton(
+            icon: Icon(Icons.send, color: Colors.pinkAccent), 
+            onPressed: () => _sendMessage(false) // Normal chat bhejo
+          ), 
         ],
       ),
     );
