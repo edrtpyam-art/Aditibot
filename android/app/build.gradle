@@ -1,18 +1,17 @@
 plugins {
     id "com.android.application"
     id "kotlin-android"
-    // 🔴 NAYA: Flutter ka naya plugin apply karne ka tarika
     id "dev.flutter.flutter-gradle-plugin"
-    id "com.google.gms.google-services" // Firebase ke liye
+    
+    // 🔴 FIX: Yahan Firebase ka version number "4.4.1" add kar diya gaya hai
+    id "com.google.gms.google-services" version "4.4.1" 
 }
 
 android {
     namespace "com.edrtpyam.aditibot"
-    
-    // 🔴 FIX: 'compileSdkVersion' ab 'compileSdk' ban gaya hai
     compileSdk flutter.compileSdkVersion
 
-    // 🔴 FIX: Llama Offline Model C++ Build Error Rokne Ke Liye
+    // 🔴 Llama Offline Model C++ Build Error Rokne Ke Liye
     ndkVersion "25.1.8937393"
 
     compileOptions {
@@ -27,7 +26,7 @@ android {
     defaultConfig {
         applicationId "com.edrtpyam.aditibot"
         
-        // 🔴 FIX: Llama model sirf SDK 24 ya uske upar chalta hai
+        // 🔴 Llama model sirf SDK 24 ya uske upar chalta hai
         minSdk 24
         
         targetSdk flutter.targetSdkVersion
