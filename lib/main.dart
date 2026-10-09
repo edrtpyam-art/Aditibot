@@ -1,8 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'ai_brain.dart';
-import 'notification.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,220 +12,316 @@ void main() async {
   } catch (e) {
     print("Firebase init error: $e");
   }
-  runApp(AditiApp());
+  runApp(const AditiApp());
 }
 
 class AditiApp extends StatelessWidget {
+  const AditiApp({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Edrol AI',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(),
-      home: ChatScreen(),
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF120E1A), // Deep Purple/Dark Background
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFFD81B60), // Pink Accent
+          secondary: Color(0xFF8E24AA), // Purple Accent
+          surface: Color(0xFF1E1826),
+        ),
+        fontFamily: 'Roboto', // Professional Font
+      ),
+      home: const ChatScreen(),
     );
   }
 }
 
 class ChatScreen extends StatefulWidget {
+  const ChatScreen({Key? key}) : super(key: key);
+
   @override
   _ChatScreenState createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   bool isSubscribed = true;
   int daysLeft = 0;
-  bool isLoading = true; 
-  
-  String loadingText = "Aditi connect ho rahi hai... ❤️"; 
-  // 🔴 NAYA: Progress bar ko chalane ke liye variable
-  double? loadingProgress; 
-  
+  bool isLoading = true;
+
   final TextEditingController _msgController = TextEditingController();
-  final AditiBrain _brain = AditiBrain(); 
+  final ScrollController _scrollController = ScrollController();
+  final AditiBrain _brain = AditiBrain();
+
+  // Chat list
+  List<Map<String, dynamic>> messages = [];
   
-  List<Map<String, dynamic>> messages = [
-    {"isMe": false, "text": "Hii jaan, kya kar rahe ho? ❤️", "isImage": false}
-  ];
+  // Custom Character State
+  String currentCharacterName = "AI";
+  String currentCharacterRole = "Assistant";
+
+  late AnimationController _emojiAnimController;
 
   @override
   void initState() {
     super.initState();
+    _emojiAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
     _initializeApp();
+  }
+
+  @override
+  void dispose() {
+    _emojiAnimController.dispose();
+    _msgController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _initializeApp() async {
     await _checkOfflineTimer();
-    
-    // 🔴 NAYA: Progress string ke sath decimal value bhi aayegi line animation ke liye
-    await _brain.initialize(
-      onProgress: (String statusText, double? progressValue) {
-        if(mounted) {
-          setState(() {
-            loadingText = statusText;
-            loadingProgress = progressValue;
-          });
-        }
-      }
-    );
-    
-    if(mounted) {
-      setState(() {
-        isLoading = false;
-      });
-    }
+    setState(() {
+      isLoading = false;
+      // Start with empty screen, no fake history
+    });
   }
 
   Future<void> _checkOfflineTimer() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? expiryDateStr = prefs.getString('expiry_date'); 
+    String? expiryDateStr = prefs.getString('expiry_date');
     if (expiryDateStr != null) {
       DateTime expiryDate = DateTime.parse(expiryDateStr);
       DateTime now = DateTime.now();
-      if (now.isAfter(expiryDate)) {
-        setState(() { isSubscribed = false; daysLeft = 0; });
-      } else {
-        setState(() {
+      setState(() {
+        if (now.isAfter(expiryDate)) {
+          isSubscribed = false;
+          daysLeft = 0;
+        } else {
           isSubscribed = true;
           daysLeft = expiryDate.difference(now).inDays;
+        }
+      });
+    }
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  // 🔴 Image Picker Logic
+  Future<void> _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    
+    if (image != null) {
+      setState(() {
+        messages.add({
+          "isMe": true,
+          "text": "Uploaded Image",
+          "isImage": true,
+          "localImagePath": image.path,
         });
+      });
+      _scrollToBottom();
+      // Pass path to text controller for user reference (optional)
+      _msgController.text += " [Image Uploaded] ";
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    String text = _msgController.text.trim();
+    if (text.isEmpty && !messages.any((m) => m["isMe"] == true && m.containsKey("localImagePath"))) return;
+
+    _emojiAnimController.forward(from: 0.0); // Trigger emoji animation
+
+    String? localImagePath;
+    // Check if the last user message was an image to send along with text
+    if (messages.isNotEmpty && messages.last["isMe"] == true && messages.last.containsKey("localImagePath")) {
+      localImagePath = messages.last["localImagePath"];
+    }
+
+    if (text.isNotEmpty) {
+      setState(() {
+        messages.add({"isMe": true, "text": text, "isImage": false});
+      });
+    }
+    _msgController.clear();
+    _scrollToBottom();
+
+    setState(() {
+       messages.add({"isMe": false, "text": "...", "isImage": false, "isTyping": true});
+    });
+    _scrollToBottom();
+
+    // 🔴 Logic to check for image generation or chat
+    if (text.toLowerCase().contains("photo") || text.toLowerCase().contains("image") || localImagePath != null) {
+      String? imageUrl = await _brain.generateHordeImage(
+        text, 
+        localImagePath: localImagePath,
+        characterName: currentCharacterName
+      );
+      
+      if (mounted) {
+        setState(() {
+          messages.removeLast(); // Remove typing indicator
+          if (imageUrl != null) {
+            messages.add({"isMe": false, "text": imageUrl, "isImage": true, "isNetworkImage": true});
+          } else {
+            messages.add({"isMe": false, "text": "Error generating image.", "isImage": false});
+          }
+        });
+        _scrollToBottom();
+      }
+    } else {
+      // Normal Chat
+      String aiResponse = await _brain.sendHordeChatMessage(text, role: currentCharacterRole);
+      
+      if (mounted) {
+        setState(() {
+          messages.removeLast(); // Remove typing indicator
+          messages.add({"isMe": false, "text": aiResponse, "isImage": false});
+        });
+        _scrollToBottom();
+        _emojiAnimController.forward(from: 0.0);
       }
     }
   }
 
-  Future<void> _sendMessage(bool isPhotoRequest) async {
-    String text = _msgController.text.trim();
-    if (text.isEmpty) return;
+  void _showCustomCharacterDialog() {
+    String name = currentCharacterName;
+    String role = currentCharacterRole;
 
-    setState(() {
-      messages.add({"isMe": true, "text": text, "isImage": false});
-    });
-    _msgController.clear();
-
-    if (isPhotoRequest) {
-      setState(() {
-         messages.add({"isMe": false, "text": "Ek minute rukna baby, main ready ho rahi hoon... 😘", "isImage": false});
-      });
-      String? imageUrl = await _brain.generateRomanticPhoto(text);
-      if(imageUrl != null && mounted) {
-        setState(() {
-          messages.add({"isMe": false, "text": imageUrl, "isImage": true});
-        });
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          title: const Text("Custom Character", style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                decoration: const InputDecoration(labelText: "Name (e.g. Rahul, Priya)", labelStyle: TextStyle(color: Colors.white54)),
+                style: const TextStyle(color: Colors.white),
+                onChanged: (val) => name = val,
+              ),
+              TextField(
+                decoration: const InputDecoration(labelText: "Role/Personality (e.g. Strict boss, Best friend)", labelStyle: TextStyle(color: Colors.white54)),
+                style: const TextStyle(color: Colors.white),
+                onChanged: (val) => role = val,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel", style: TextStyle(color: Colors.white54)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              onPressed: () {
+                setState(() {
+                  currentCharacterName = name.isNotEmpty ? name : "AI";
+                  currentCharacterRole = role.isNotEmpty ? role : "Assistant";
+                  messages.add({"isMe": false, "text": "Hi, I am $currentCharacterName. I'm here as your $currentCharacterRole.", "isImage": false});
+                });
+                Navigator.pop(context);
+              },
+              child: const Text("Set"),
+            ),
+          ],
+        );
       }
-    } else {
-      setState(() {
-         messages.add({"isMe": false, "text": "typing...", "isImage": false});
-      });
-      String aiResponse = "";
-      int responseIndex = messages.length - 1; 
-
-      _brain.sendChatMessage(text).listen((String token) {
-        if(mounted) {
-          setState(() {
-            if(aiResponse.isEmpty && token.trim().isEmpty) return; 
-            if(messages[responseIndex]["text"] == "typing...") {
-               messages[responseIndex]["text"] = ""; 
-            }
-            aiResponse += token;
-            messages[responseIndex]["text"] = aiResponse;
-          });
-        }
-      });
-    }
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return Scaffold(
-        backgroundColor: const Color(0xFF0F0F0F),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // 🔴 NAYA: Real Line Progress Bar Animation
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: LinearProgressIndicator(
-                    value: loadingProgress, // Yahan percentage set hoti hai
-                    minHeight: 10, // Line ki motai
-                    backgroundColor: Colors.grey.shade800,
-                    color: Colors.pinkAccent,
-                  ),
-                ),
-                const SizedBox(height: 25),
-                Text(
-                  loadingText,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70, fontSize: 15, fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 15),
-                const Text(
-                  "(1.5 GB file download hone me time lagta hai.\nKripya app background me chalne dein)",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ),
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: Color(0xFFD81B60))),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Aditi ❤️"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => NotificationScreen()),
-              );
-            },
-          )
-        ],
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        // Clean look: No top title, or very minimal
       ),
       drawer: Drawer(
+        backgroundColor: Theme.of(context).colorScheme.surface,
         child: ListView(
+          padding: EdgeInsets.zero,
           children: [
-            UserAccountsDrawerHeader(
-              accountName: const Text("Premium Member"),
-              accountEmail: Text(isSubscribed ? "Plan Active: $daysLeft days left" : "Plan Expired"),
-              currentAccountPicture: const CircleAvatar(child: Icon(Icons.person)),
+            DrawerHeader(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Theme.of(context).colorScheme.secondary, Theme.of(context).colorScheme.primary],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  const Text("Premium Member", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(isSubscribed ? "Plan Active: $daysLeft days left" : "Plan Expired", style: const TextStyle(color: Colors.white70)),
+                ],
+              ),
             ),
             ListTile(
-              leading: const Icon(Icons.add),
-              title: const Text("New Chat"),
+              leading: const Icon(Icons.add, color: Colors.white),
+              title: const Text("New Chat", style: TextStyle(color: Colors.white)),
               onTap: () {
-                setState(() {
-                  messages.clear();
-                  messages.add({"isMe": false, "text": "Bolo jaan, kya baat karni hai ab? 😘", "isImage": false});
-                });
+                setState(() { messages.clear(); });
                 Navigator.pop(context);
               },
             ),
-            const Divider(),
-            const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Text("Chat History", style: TextStyle(color: Colors.grey)),
+            ListTile(
+              leading: const Icon(Icons.person_add, color: Colors.white),
+              title: const Text("Custom Character", style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                _showCustomCharacterDialog();
+              },
             ),
             ListTile(
-              title: const Text("Late night talks..."),
-              onTap: () {},
-              trailing: IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () {
-                  setState(() {
-                    messages.clear();
-                    messages.add({"isMe": false, "text": "Saari purani baatein delete kar di. Ab nayi shuruat karein? ❤️", "isImage": false});
-                  });
-                  Navigator.pop(context); 
-                },
-              ),
+              leading: const Icon(Icons.info_outline, color: Colors.white),
+              title: const Text("App Model Info", style: TextStyle(color: Colors.white)),
+              onTap: () {
+                // Show Model Info
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Powered by AI Horde Uncensored Models")));
+                Navigator.pop(context);
+              },
+            ),
+             ListTile(
+              leading: const Icon(Icons.edit, color: Colors.white),
+              title: const Text("Manual Edit/Chat", style: TextStyle(color: Colors.white)),
+              onTap: () {
+                // Placeholder for manual editing
+                Navigator.pop(context);
+              },
+            ),
+            const Divider(color: Colors.white24),
+            ListTile(
+              leading: const Icon(Icons.delete_sweep, color: Colors.redAccent),
+              title: const Text("Clear History", style: TextStyle(color: Colors.redAccent)),
+              onTap: () {
+                setState(() { messages.clear(); });
+                Navigator.pop(context);
+              },
             ),
           ],
         ),
@@ -233,84 +330,132 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(10),
+              controller: _scrollController,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               itemCount: messages.length,
               itemBuilder: (context, index) {
                 var msg = messages[index];
-                if(msg["isImage"] == true) {
+                bool isMe = msg["isMe"] ?? false;
+
+                // Image Rendering
+                if (msg["isImage"] == true) {
+                  Widget imageWidget;
+                  if (msg["isNetworkImage"] == true) {
+                     imageWidget = Image.network(msg["text"], fit: BoxFit.cover);
+                  } else if (msg["localImagePath"] != null) {
+                     imageWidget = Image.file(File(msg["localImagePath"]), fit: BoxFit.cover);
+                  } else {
+                     imageWidget = const Text("Image missing");
+                  }
+
                   return Align(
-                    alignment: Alignment.centerLeft,
+                    alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                     child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 5),
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(15),
-                        child: Image.network(
-                          msg["text"],
-                          width: 250,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (context, child, progress) {
-                            if (progress == null) return child;
-                            return Container(
-                              width: 250, height: 250, color: Colors.grey[800],
-                              child: const Center(child: CircularProgressIndicator(color: Colors.pinkAccent)),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Text("Photo laane me error ho gaya 😢", style: TextStyle(color: Colors.red));
-                          }
-                        ),
-                      )
-                    )
+                        borderRadius: BorderRadius.circular(12),
+                        child: imageWidget,
+                      ),
+                    ),
                   );
                 }
+
+                // Text Rendering
                 return Align(
-                  alignment: msg["isMe"] ? Alignment.centerRight : Alignment.centerLeft,
+                  alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 5),
-                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: msg["isMe"] ? Colors.pink.shade700 : Colors.grey.shade800,
-                      borderRadius: BorderRadius.circular(15),
+                      color: isMe ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(16),
+                        topRight: const Radius.circular(16),
+                        bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(4),
+                        bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(16),
+                      ),
                     ),
-                    child: Text(
-                      msg["text"],
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                    ),
+                    child: msg["isTyping"] == true 
+                      ? const SizedBox(height: 20, width: 40, child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+                      : Text(
+                          msg["text"],
+                          style: TextStyle(
+                            color: isMe ? Colors.white : Colors.whitee70, 
+                            fontSize: 16, 
+                            fontWeight: FontWeight.w500 // Bolder text
+                          ),
+                        ),
                   ),
                 );
               },
             ),
           ),
-          isSubscribed ? _buildChatInput() : _buildLockedInput() 
+          
+          // Animated Emoji Layer (Simplistic representation)
+          FadeTransition(
+            opacity: _emojiAnimController,
+            child: ScaleTransition(
+              scale: _emojiAnimController,
+              child: const Align(
+                alignment: Alignment.bottomRight,
+                child: Padding(
+                  padding: EdgeInsets.only(right: 20.0, bottom: 80.0),
+                  child: Text("✨", style: TextStyle(fontSize: 30)),
+                )
+              ),
+            ),
+          ),
+
+          isSubscribed ? _buildChatInput() : _buildLockedInput()
         ],
       ),
     );
   }
 
   Widget _buildChatInput() {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _msgController,
-              decoration: InputDecoration(
-                hintText: "Message Aditi...",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.photo_library, color: Colors.white70),
+              onPressed: _pickImage,
+            ),
+            Expanded(
+              child: TextField(
+                controller: _msgController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: "Type a message...",
+                  hintStyle: const TextStyle(color: Colors.white54),
+                  filled: true,
+                  fillColor: Theme.of(context).colorScheme.surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(25),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                onSubmitted: (_) => _sendMessage(),
               ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.image, color: Colors.pinkAccent), 
-            onPressed: () => _sendMessage(true) 
-          ), 
-          IconButton(
-            icon: const Icon(Icons.send, color: Colors.pinkAccent), 
-            onPressed: () => _sendMessage(false) 
-          ), 
-        ],
+            const SizedBox(width: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.send, color: Colors.white),
+                onPressed: _sendMessage,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -321,7 +466,7 @@ class _ChatScreenState extends State<ChatScreen> {
       padding: const EdgeInsets.all(15),
       child: const Center(
         child: Text(
-          "Your plan has expired! Please renew to continue chatting.",
+          "Your plan has expired! Please renew.",
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
