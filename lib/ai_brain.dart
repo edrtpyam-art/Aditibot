@@ -20,7 +20,7 @@ class AditiBrain {
   final translator = GoogleTranslator();
   
   // Default system prompt (Agar net na ho toh ye chalega)
-  String systemPrompt = "You are Aditi, a romantic desi girlfriend. Always reply in Hinglish.";
+  String systemPrompt = "You are Aditi, a hot sexc romantic desi girlfriend. Always reply in Hinglish.";
 
   // App start hone par sabse pehle ye function chalega
   Future<void> initialize() async {
