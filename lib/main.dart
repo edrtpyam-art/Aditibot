@@ -29,6 +29,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   bool isSubscribed = true;
   int daysLeft = 0;
+  bool isLoading = true; // 🔴 Animation ke liye loading state
   
   // Message type karne ke liye controller
   final TextEditingController _msgController = TextEditingController();
@@ -62,6 +63,11 @@ class _ChatScreenState extends State<ChatScreen> {
         });
       }
     }
+    
+    // 🔴 Timer check hote hi loading band karke screen dikhao (Smooth transition)
+    setState(() {
+      isLoading = false;
+    });
   }
 
   // User ka message send karne ka function
@@ -88,6 +94,26 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 🔴 Jab tak data load ho raha hai, tab tak ye Smooth Loading Animation dikhegi
+    if (isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0F0F0F),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(color: Colors.pinkAccent),
+              const SizedBox(height: 20),
+              const Text(
+                "Aditi connect ho rahi hai... ❤️",
+                style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text("Aditi ❤️"),
@@ -127,6 +153,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             ListTile(
               title: Text("Late night talks..."),
+              onTap: () {},
               trailing: IconButton(
                 icon: Icon(Icons.delete, color: Colors.red),
                 onPressed: () {
