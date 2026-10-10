@@ -24,7 +24,7 @@ jobs:
         with:
           gradle-version: '7.6.4'
 
-      # 🔴 C++ aur Llama AI compile karne ke liye tools add kiye
+      # 🔴 C++ aur Llama AI compile karne ke liye tools
       - name: Install Native Build Tools
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build
 
@@ -48,9 +48,8 @@ jobs:
       - name: Generate App Icon
         run: dart run flutter_launcher_icons
 
-      # 🔴 YE LINE ANDROID EMBEDDING KE LAFDE KO KHATAM KAREGI
-      - name: Recreate Android Project
-        run: flutter create --platforms=android --org com.dragoeagle.edrolai .
+      # 🔴 NAYA FIX: Yahan se 'flutter create' wali line hata di gayi hai
+      # Taaki hamari build.gradle ki custom Llama settings safe rahein
 
       - name: Build Android APK
         run: flutter build apk --release
