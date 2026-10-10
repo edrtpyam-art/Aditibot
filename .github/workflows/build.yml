@@ -1,8 +1,9 @@
+
 name: Build Edrol AI Release
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -16,25 +17,37 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: temurin
+          java-version: "17"
 
       - name: Install Native Build Tools
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.x'
-          channel: 'stable'
+          flutter-version: "3.x"
+          channel: stable
+
+      - name: Show Build Environment
+        run: |
+          flutter --version
+          dart --version
+          java -version
+          cmake --version
+          df -h
+          free -h
 
       - name: Install Dependencies
         run: flutter pub get
 
       - name: Fix Android v1 Embedding
-        run: flutter create --platforms=android --org com.edrtpyam.aditibot .
+        run: |
+          flutter create --platforms=android \
+            --org com.edrtpyam.aditibot .
 
-      # 🔴 MASTER FIX 1: Llama Package ko NDK 25 force karne ke liye
       - name: Force NDK 25 for ALL Packages
         run: |
           cat << 'EOF' >> android/build.gradle
@@ -50,7 +63,6 @@ jobs:
           }
           EOF
 
-      # 🔴 MASTER FIX 2: App settings, Firebase aur MinSDK 24 ke liye
       - name: Setup Custom App Gradle
         run: |
           cat << 'EOF' > android/app/build.gradle
@@ -58,7 +70,7 @@ jobs:
               id "com.android.application"
               id "kotlin-android"
               id "dev.flutter.flutter-gradle-plugin"
-              id "com.google.gms.google-services" version "4.4.1" 
+              id "com.google.gms.google-services" version "4.4.1"
           }
 
           android {
@@ -68,7 +80,9 @@ jobs:
               ndkVersion "25.2.9519653"
 
               externalNativeBuild {
-                  cmake { version "3.22.1" }
+                  cmake {
+                      version "3.22.1"
+                  }
               }
 
               compileOptions {
@@ -76,7 +90,9 @@ jobs:
                   targetCompatibility = JavaVersion.VERSION_1_8
               }
 
-              kotlinOptions { jvmTarget = '1.8' }
+              kotlinOptions {
+                  jvmTarget = '1.8'
+              }
 
               defaultConfig {
                   applicationId "com.edrtpyam.aditibot"
@@ -87,23 +103,21 @@ jobs:
               }
 
               buildTypes {
-                  release { signingConfig signingConfigs.debug }
+                  release {
+                      signingConfig signingConfigs.debug
+                  }
               }
           }
           EOF
 
-      # 🔴 MASTER FIX 3 (UPDATED): Text file busy error bypass karne ke liye 'dd' method ka use
-      - name: Create Extra Swap Memory (Safe Method)
-        run: |
-          sudo rm -f /swapfile
-          sudo dd if=/dev/zero of=/swapfile bs=1M count=10240
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          sudo sysctl vm.swappiness=10
-
       - name: Build Android APK
         run: flutter build apk --release
+
+      - name: Verify APK
+        run: |
+          APK="build/app/outputs/flutter-apk/app-release.apk"
+          test -f "$APK"
+          ls -lh "$APK"
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
