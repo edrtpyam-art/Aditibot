@@ -1,9 +1,8 @@
-
 name: Build Edrol AI Release
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -17,36 +16,23 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: "17"
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: Install Native Build Tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.x"
-          channel: stable
-
-      - name: Show Build Environment
-        run: |
-          flutter --version
-          dart --version
-          java -version
-          cmake --version
-          df -h
-          free -h
+          flutter-version: '3.x'
+          channel: 'stable'
 
       - name: Install Dependencies
         run: flutter pub get
 
       - name: Fix Android v1 Embedding
-        run: |
-          flutter create --platforms=android \
-            --org com.edrtpyam.aditibot .
+        run: flutter create --platforms=android --org com.edrtpyam.aditibot .
 
       - name: Force NDK 25 for ALL Packages
         run: |
@@ -63,14 +49,15 @@ jobs:
           }
           EOF
 
-      - name: Setup Custom App Gradle
+      # 🔴 HACK 1: App Settings mein Low RAM aur Single Architecture Force karna
+      - name: Setup Custom App Gradle (LOW RAM MODE)
         run: |
           cat << 'EOF' > android/app/build.gradle
           plugins {
               id "com.android.application"
               id "kotlin-android"
               id "dev.flutter.flutter-gradle-plugin"
-              id "com.google.gms.google-services" version "4.4.1"
+              id "com.google.gms.google-services" version "4.4.1" 
           }
 
           android {
@@ -79,45 +66,53 @@ jobs:
 
               ndkVersion "25.2.9519653"
 
-              externalNativeBuild {
-                  cmake {
-                      version "3.22.1"
-                  }
-              }
-
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_1_8
-                  targetCompatibility = JavaVersion.VERSION_1_8
-              }
-
-              kotlinOptions {
-                  jvmTarget = '1.8'
-              }
-
               defaultConfig {
                   applicationId "com.edrtpyam.aditibot"
                   minSdk 24
                   targetSdk flutter.targetSdkVersion
                   versionCode flutter.versionCode
                   versionName flutter.versionName
+
+                  // 🔴 EXTREME HACK: Sirf 64-bit phones ke liye C++ banao, load aadha ho jayega
+                  ndk {
+                      abiFilters 'arm64-v8a'
+                  }
+
+                  externalNativeBuild {
+                      cmake {
+                          // 🔴 EXTREME HACK: C++ compiler ko bolo sirf 1 core use kare taaki RAM full na ho
+                          arguments "-DCMAKE_BUILD_PARALLEL_LEVEL=1"
+                      }
+                  }
               }
 
+              externalNativeBuild {
+                  cmake { version "3.22.1" }
+              }
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_1_8
+                  targetCompatibility = JavaVersion.VERSION_1_8
+              }
+              kotlinOptions { jvmTarget = '1.8' }
               buildTypes {
-                  release {
-                      signingConfig signingConfigs.debug
-                  }
+                  release { signingConfig signingConfigs.debug }
               }
           }
           EOF
 
-      - name: Build Android APK
-        run: flutter build apk --release
-
-      - name: Verify APK
+      # 🔴 HACK 2: Gradle ko background mein RAM khane se rokna
+      - name: Set Low RAM Gradle Properties
         run: |
-          APK="build/app/outputs/flutter-apk/app-release.apk"
-          test -f "$APK"
-          ls -lh "$APK"
+          echo "org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m" >> android/gradle.properties
+          echo "org.gradle.parallel=false" >> android/gradle.properties
+          echo "org.gradle.workers.max=1" >> android/gradle.properties
+
+      # 🔴 HACK 3: Flutter aur Make command ko strictly 1 thread pe limit karna
+      - name: Build Android APK (Strict arm64)
+        run: flutter build apk --release --target-platform android-arm64
+        env:
+          MAKEFLAGS: "-j1"
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
