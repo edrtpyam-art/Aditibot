@@ -19,7 +19,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # 🔴 Zaroori Step: C++ Compile karne ke tools install karna
       - name: Install Native Build Tools
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build
 
@@ -93,10 +92,11 @@ jobs:
           }
           EOF
 
-      # 🔴 MASTER FIX 3: GitHub Server ko 10GB extra RAM (Swap) dena taaki C++ build memory full hoke crash na ho
-      - name: Create Extra Swap Memory for C++ Compilation
+      # 🔴 MASTER FIX 3 (UPDATED): Text file busy error bypass karne ke liye 'dd' method ka use
+      - name: Create Extra Swap Memory (Safe Method)
         run: |
-          sudo fallocate -l 10G /swapfile
+          sudo rm -f /swapfile
+          sudo dd if=/dev/zero of=/swapfile bs=1M count=10240
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
