@@ -19,6 +19,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      # 🔴 Zaroori Step: C++ Compile karne ke tools install karna
+      - name: Install Native Build Tools
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -88,6 +92,15 @@ jobs:
               }
           }
           EOF
+
+      # 🔴 MASTER FIX 3: GitHub Server ko 10GB extra RAM (Swap) dena taaki C++ build memory full hoke crash na ho
+      - name: Create Extra Swap Memory for C++ Compilation
+        run: |
+          sudo fallocate -l 10G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          sudo sysctl vm.swappiness=10
 
       - name: Build Android APK
         run: flutter build apk --release
