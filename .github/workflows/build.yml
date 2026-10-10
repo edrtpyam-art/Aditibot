@@ -19,33 +19,36 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '7.6.4'
-
-      - name: Install Native Build Tools
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.x'
           channel: 'stable'
-          cache: true
 
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Generate App Icon
-        run: dart run flutter_launcher_icons
-
-      # 🔴 STEP 1: Fix Android v1 Embedding
       - name: Fix Android v1 Embedding
         run: flutter create --platforms=android --org com.edrtpyam.aditibot .
 
-      # 🔴 STEP 2: Setup Custom build.gradle for Llama
-      - name: Setup Custom build.gradle for Llama
+      # 🔴 MASTER FIX 1: Llama Package ko NDK 25 force karne ke liye
+      - name: Force NDK 25 for ALL Packages
+        run: |
+          cat << 'EOF' >> android/build.gradle
+
+          subprojects {
+              afterEvaluate { project ->
+                  if (project.hasProperty('android')) {
+                      project.android {
+                          ndkVersion "25.2.9519653"
+                      }
+                  }
+              }
+          }
+          EOF
+
+      # 🔴 MASTER FIX 2: App settings, Firebase aur MinSDK 24 ke liye
+      - name: Setup Custom App Gradle
         run: |
           cat << 'EOF' > android/app/build.gradle
           plugins {
@@ -62,9 +65,7 @@ jobs:
               ndkVersion "25.2.9519653"
 
               externalNativeBuild {
-                  cmake {
-                      version "3.22.1"
-                  }
+                  cmake { version "3.22.1" }
               }
 
               compileOptions {
@@ -72,9 +73,7 @@ jobs:
                   targetCompatibility = JavaVersion.VERSION_1_8
               }
 
-              kotlinOptions {
-                  jvmTarget = '1.8'
-              }
+              kotlinOptions { jvmTarget = '1.8' }
 
               defaultConfig {
                   applicationId "com.edrtpyam.aditibot"
@@ -85,24 +84,12 @@ jobs:
               }
 
               buildTypes {
-                  release {
-                      signingConfig signingConfigs.debug
-                  }
+                  release { signingConfig signingConfigs.debug }
               }
           }
           EOF
 
-      # 🔴 STEP 3: NDK 25 Install Karna aur Environment ko force karna
-      - name: Install and Force NDK 25
-        run: |
-          echo "y" | sudo ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;25.2.9519653"
-          sudo rm -rf ${ANDROID_HOME}/ndk/28.*
-
-      # 🔴 STEP 4: Build APK with STRICT Environment Variables
       - name: Build Android APK
-        env:
-          ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
-          ANDROID_NDK_VERSION: 25.2.9519653
         run: flutter build apk --release
 
       - name: Upload Android APK
