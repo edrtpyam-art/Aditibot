@@ -24,7 +24,6 @@ jobs:
         with:
           gradle-version: '7.6.4'
 
-      # 🔴 C++ aur Llama AI compile karne ke liye tools
       - name: Install Native Build Tools
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build
 
@@ -35,21 +34,63 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Check Versions
-        run: |
-          java -version
-          gradle --version
-          flutter --version
-          cmake --version
-
       - name: Install Dependencies
         run: flutter pub get
 
       - name: Generate App Icon
         run: dart run flutter_launcher_icons
 
-      # 🔴 NAYA FIX: Yahan se 'flutter create' wali line hata di gayi hai
-      # Taaki hamari build.gradle ki custom Llama settings safe rahein
+      # 🔴 STEP 1: Ye line Android v1 embedding error ko permanently theek karegi
+      - name: Recreate Android Project
+        run: flutter create --platforms=android --org com.edrtpyam.aditibot .
+
+      # 🔴 STEP 2: Ye auto-script Llama Offline C++ settings ko set karegi (Bina fail hue)
+      - name: Inject Custom Build Gradle for Llama C++
+        run: |
+          cat << 'EOF' > android/app/build.gradle
+          plugins {
+              id "com.android.application"
+              id "kotlin-android"
+              id "dev.flutter.flutter-gradle-plugin"
+              id "com.google.gms.google-services" version "4.4.1" 
+          }
+
+          android {
+              namespace "com.edrtpyam.aditibot"
+              compileSdk flutter.compileSdkVersion
+
+              ndkVersion "25.1.8937393"
+
+              externalNativeBuild {
+                  cmake {
+                      version "3.22.1"
+                  }
+              }
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_1_8
+                  targetCompatibility = JavaVersion.VERSION_1_8
+              }
+
+              kotlinOptions {
+                  jvmTarget = '1.8'
+              }
+
+              defaultConfig {
+                  applicationId "com.edrtpyam.aditibot"
+                  minSdk 24
+                  targetSdk flutter.targetSdkVersion
+                  versionCode flutter.versionCode
+                  versionName flutter.versionName
+              }
+
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.debug
+                  }
+              }
+          }
+          EOF
 
       - name: Build Android APK
         run: flutter build apk --release
