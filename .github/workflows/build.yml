@@ -40,11 +40,11 @@ jobs:
       - name: Generate App Icon
         run: dart run flutter_launcher_icons
 
-      # 🔴 STEP 1: Ye line Android v1 embedding error ko hamesha ke liye khatam karegi
+      # 🔴 STEP 1: Fix Android v1 Embedding
       - name: Fix Android v1 Embedding
         run: flutter create --platforms=android --org com.edrtpyam.aditibot .
 
-      # 🔴 STEP 2: Ye script naya Llama-friendly build.gradle banayegi
+      # 🔴 STEP 2: Setup Custom build.gradle for Llama
       - name: Setup Custom build.gradle for Llama
         run: |
           cat << 'EOF' > android/app/build.gradle
@@ -92,13 +92,17 @@ jobs:
           }
           EOF
 
-      # 🔴 STEP 3: Ye script GitHub server se NDK 28 ko delete karke NDK 25 force karegi
-      - name: Force Stable NDK for C++
+      # 🔴 STEP 3: NDK 25 Install Karna aur Environment ko force karna
+      - name: Install and Force NDK 25
         run: |
-          sudo rm -rf /usr/local/lib/android/sdk/ndk/28.*
-          echo "ndk.dir=/usr/local/lib/android/sdk/ndk/25.2.9519653" >> android/local.properties
+          echo "y" | sudo ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;25.2.9519653"
+          sudo rm -rf ${ANDROID_HOME}/ndk/28.*
 
+      # 🔴 STEP 4: Build APK with STRICT Environment Variables
       - name: Build Android APK
+        env:
+          ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
+          ANDROID_NDK_VERSION: 25.2.9519653
         run: flutter build apk --release
 
       - name: Upload Android APK
