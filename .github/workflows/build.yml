@@ -40,57 +40,11 @@ jobs:
       - name: Generate App Icon
         run: dart run flutter_launcher_icons
 
-      # 🔴 STEP 1: Ye line Android v1 embedding error ko permanently theek karegi
-      - name: Recreate Android Project
-        run: flutter create --platforms=android --org com.edrtpyam.aditibot .
-
-      # 🔴 STEP 2: Ye auto-script Llama Offline C++ settings ko set karegi (Bina fail hue)
-      - name: Inject Custom Build Gradle for Llama C++
+      # 🔴 FINAL PROFESSIONAL FIX: NDK 28 ko server se delete karke NDK 25 force karna
+      - name: Force Stable NDK 25 for Llama C++
         run: |
-          cat << 'EOF' > android/app/build.gradle
-          plugins {
-              id "com.android.application"
-              id "kotlin-android"
-              id "dev.flutter.flutter-gradle-plugin"
-              id "com.google.gms.google-services" version "4.4.1" 
-          }
-
-          android {
-              namespace "com.edrtpyam.aditibot"
-              compileSdk flutter.compileSdkVersion
-
-              ndkVersion "25.1.8937393"
-
-              externalNativeBuild {
-                  cmake {
-                      version "3.22.1"
-                  }
-              }
-
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_1_8
-                  targetCompatibility = JavaVersion.VERSION_1_8
-              }
-
-              kotlinOptions {
-                  jvmTarget = '1.8'
-              }
-
-              defaultConfig {
-                  applicationId "com.edrtpyam.aditibot"
-                  minSdk 24
-                  targetSdk flutter.targetSdkVersion
-                  versionCode flutter.versionCode
-                  versionName flutter.versionName
-              }
-
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.debug
-                  }
-              }
-          }
-          EOF
+          sudo rm -rf /usr/local/lib/android/sdk/ndk/28.*
+          echo "ndk.dir=/usr/local/lib/android/sdk/ndk/25.2.9519653" >> android/local.properties
 
       - name: Build Android APK
         run: flutter build apk --release
