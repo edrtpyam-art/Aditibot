@@ -4,7 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'ai_brain.dart';
-import 'notification.dart'; // Apna notification page yahan link rakhna
+import 'notification.dart'; 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,11 +26,12 @@ class AditiApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF131314), 
+        // 🔴 ROMANTIC THEME: Deep Dark Rose Background
+        scaffoldBackgroundColor: const Color(0xFF170F11), 
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFB388FF), 
-          secondary: Color(0xFF1E1F20), 
-          surface: Color(0xFF1E1F20), 
+          primary: Color(0xFFFF4081), // Hot Pink/Rose Accent
+          secondary: Color(0xFF2D1B24), // Soft Dark Pink-Grey for bubbles
+          surface: Color(0xFF1E1418), // Slightly lighter background for cards
         ),
         fontFamily: 'Roboto',
       ),
@@ -50,9 +51,8 @@ class _ChatScreenState extends State<ChatScreen> {
   bool isSubscribed = true;
   int daysLeft = 0;
   
-  // NAYA: Download State Variables
   bool isLoading = true;
-  String downloadStatus = "Connecting to AI Engine...";
+  String downloadStatus = "Connecting to Aditi... 💖";
   double downloadProgress = 0.0;
 
   final TextEditingController _msgController = TextEditingController();
@@ -62,7 +62,7 @@ class _ChatScreenState extends State<ChatScreen> {
   List<Map<String, dynamic>> messages = [];
   
   String currentCharacterName = "Aditi";
-  String currentCharacterRole = "Assistant";
+  String currentCharacterRole = "Companion"; // Default role slightly romantic
 
   @override
   void initState() {
@@ -145,7 +145,7 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() {
         messages.add({
           "isMe": true,
-          "text": "Image Uploaded",
+          "text": "Image Uploaded 📸",
           "isImage": true,
           "localImagePath": image.path,
         });
@@ -217,15 +217,15 @@ class _ChatScreenState extends State<ChatScreen> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: Theme.of(context).colorScheme.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text("Select AI Model / Role", style: TextStyle(color: Colors.white, fontSize: 18)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text("Your Companion ✨", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 decoration: InputDecoration(
                   labelText: "Character Name", 
-                  labelStyle: const TextStyle(color: Colors.white54),
+                  labelStyle: TextStyle(color: Theme.of(context).colorScheme.primary.withOpacity(0.7)),
                   enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
                   focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
                 ),
@@ -236,8 +236,8 @@ class _ChatScreenState extends State<ChatScreen> {
               const SizedBox(height: 10),
               TextField(
                 decoration: InputDecoration(
-                  labelText: "Role (e.g. GF, Boss, Teacher)", 
-                  labelStyle: const TextStyle(color: Colors.white54),
+                  labelText: "Role (e.g. Girlfriend, Wifey)", 
+                  labelStyle: TextStyle(color: Theme.of(context).colorScheme.primary.withOpacity(0.7)),
                   enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
                   focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
                 ),
@@ -255,18 +255,18 @@ class _ChatScreenState extends State<ChatScreen> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.black, 
+                foregroundColor: Colors.white, 
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               ),
               onPressed: () {
                 setState(() {
-                  currentCharacterName = name.isNotEmpty ? name : "AI";
-                  currentCharacterRole = role.isNotEmpty ? role : "Assistant";
-                  messages.add({"isMe": false, "text": "Hi, I am $currentCharacterName. Ready to chat! ✨", "isImage": false});
+                  currentCharacterName = name.isNotEmpty ? name : "Aditi";
+                  currentCharacterRole = role.isNotEmpty ? role : "Companion";
+                  messages.add({"isMe": false, "text": "Hi baby, I am $currentCharacterName. Let's talk... 💕", "isImage": false});
                 });
                 Navigator.pop(context);
               },
-              child: const Text("Update Model", style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text("Update", style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -274,17 +274,15 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  // 🔴 UPDATED: Professional Loading Screen for Cloud Connection
   Widget _buildLoadingScreen() {
     return Scaffold(
-      backgroundColor: const Color(0xFF131314),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 40.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Glowing Progress Circle
               Container(
                 width: 130,
                 height: 130,
@@ -292,8 +290,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.15), 
-                      blurRadius: 40, 
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.2), 
+                      blurRadius: 50, 
                       spreadRadius: 10
                     ),
                   ]
@@ -308,18 +306,14 @@ class _ChatScreenState extends State<ChatScreen> {
                       valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
                       strokeCap: StrokeCap.round,
                     ),
-                    Center(
-                      child: Text(
-                        "${(downloadProgress * 100).toStringAsFixed(0)}%",
-                        style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
-                      ),
+                    const Center(
+                      child: Icon(Icons.favorite, color: Colors.white, size: 40),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 40),
               
-              // Status Text
               Text(
                 downloadStatus,
                 textAlign: TextAlign.center,
@@ -327,7 +321,6 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
               const SizedBox(height: 12),
               
-              // 🔴 FIX: Updated Warning Text to reflect Cloud API usage
               const Text(
                 "Connecting to secure premium server.\nPlease wait a moment.",
                 textAlign: TextAlign.center,
@@ -348,7 +341,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF131314),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white70),
         centerTitle: false,
@@ -361,12 +354,16 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                  child: Icon(Icons.favorite, size: 16, color: Theme.of(context).colorScheme.primary),
+                ),
+                const SizedBox(width: 10),
                 Text(
                   currentCharacterName, 
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.white),
+                  style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600, color: Colors.white),
                 ),
-                const SizedBox(width: 4),
-                const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white54, size: 20),
               ],
             ),
           ),
@@ -412,7 +409,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       margin: const EdgeInsets.symmetric(vertical: 8),
                       constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(20),
                         child: imageWidget,
                       ),
                     ),
@@ -424,24 +421,36 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: Container(
                     margin: const EdgeInsets.symmetric(vertical: 6),
                     constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.85),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                     decoration: BoxDecoration(
-                      color: isMe ? Theme.of(context).colorScheme.primary.withOpacity(0.9) : Theme.of(context).colorScheme.secondary,
+                      // User message uses Hot Pink, AI uses Soft Dark Rose-Grey
+                      color: isMe ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.secondary,
                       borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(20),
-                        topRight: const Radius.circular(20),
-                        bottomLeft: isMe ? const Radius.circular(20) : const Radius.circular(4),
-                        bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(20),
+                        topLeft: const Radius.circular(24),
+                        topRight: const Radius.circular(24),
+                        bottomLeft: isMe ? const Radius.circular(24) : const Radius.circular(6),
+                        bottomRight: isMe ? const Radius.circular(6) : const Radius.circular(24),
                       ),
+                      boxShadow: [
+                        if (isMe) BoxShadow(color: Theme.of(context).colorScheme.primary.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))
+                      ]
                     ),
+                    // 🔴 FIX: YAHAN SE CIRCLE HATA DIYA HAI AUR PYARA SA TEXT LAGA DIYA HAI
                     child: msg["isTyping"] == true 
-                      ? const SizedBox(height: 20, width: 40, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)))
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.favorite, size: 14, color: Theme.of(context).colorScheme.primary),
+                            const SizedBox(width: 8),
+                            const Text("Typing... 💕", style: TextStyle(color: Colors.white70, fontSize: 14, fontStyle: FontStyle.italic)),
+                          ],
+                        )
                       : Text(
                           msg["text"],
                           style: TextStyle(
-                            color: isMe ? Colors.black87 : Colors.white, 
+                            color: isMe ? Colors.white : Colors.white.withOpacity(0.9), 
                             fontSize: 15.5, 
-                            fontWeight: isMe ? FontWeight.w500 : FontWeight.w400,
+                            fontWeight: FontWeight.w400,
                             height: 1.4,
                           ),
                         ),
@@ -458,7 +467,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildModernDrawer() {
     return Drawer(
-      backgroundColor: const Color(0xFF131314),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -468,15 +477,15 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Edrol AI", style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 22, fontWeight: FontWeight.bold)),
+                  Text("Edrol AI", style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 24, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.white10,
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text("Premium Active", style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    child: Text("Premium Active 💖", style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12, fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),
@@ -488,7 +497,7 @@ class _ChatScreenState extends State<ChatScreen> {
               setState(() { messages.clear(); });
               Navigator.pop(context);
             }),
-            _drawerItem(Icons.tune_rounded, "AI Model / Character", () {
+            _drawerItem(Icons.favorite_border_rounded, "AI Model / Character", () {
               Navigator.pop(context);
               _showCustomCharacterDialog();
             }),
@@ -521,15 +530,15 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildModernChatInput() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: const BoxDecoration(
-        color: Color(0xFF131314),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
       ),
       child: SafeArea(
         child: Row(
           children: [
             Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1F20),
+                color: Theme.of(context).colorScheme.surface,
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white10),
               ),
@@ -542,7 +551,7 @@ class _ChatScreenState extends State<ChatScreen> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E1F20),
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(25),
                   border: Border.all(color: Colors.white10),
                 ),
@@ -552,7 +561,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   minLines: 1,
                   maxLines: 4,
                   decoration: const InputDecoration(
-                    hintText: "Type a message...",
+                    hintText: "Message Aditi...",
                     hintStyle: TextStyle(color: Colors.white38),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(horizontal: 18, vertical: 14),
@@ -566,9 +575,12 @@ class _ChatScreenState extends State<ChatScreen> {
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primary,
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: Theme.of(context).colorScheme.primary.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 3))
+                ]
               ),
               child: IconButton(
-                icon: const Icon(Icons.send_rounded, color: Colors.black87, size: 20),
+                icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
                 onPressed: _sendMessage,
               ),
             ),
@@ -581,10 +593,10 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildLockedInput() {
     return Container(
       width: double.infinity,
-      color: Colors.redAccent.withOpacity(0.1),
+      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
       padding: const EdgeInsets.all(15),
       child: const SafeArea(
-        child: Text("Premium Plan Expired.", textAlign: TextAlign.center, style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+        child: Text("Premium Plan Expired.", textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
     );
   }
