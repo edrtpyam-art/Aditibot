@@ -5,8 +5,8 @@ import 'package:translator/translator.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 class AditiBrain {
-  // 🔴 NAYA MASTER URL YAHAN HAI
-  final String apiUrl = "https://ticbull.in/v1/zyxo";
+  // 🔴 URL ke aakhiri mein slash '/' add kiya hai
+  final String apiUrl = "https://ticbull.in/v1/zyxo/";
   
   // Environment variable se lega, agar nahi mila toh fallback key use karega
   final String ticbullApiKey = const String.fromEnvironment(
@@ -14,19 +14,16 @@ class AditiBrain {
     defaultValue: 'yxo-app-7acd221d0722d89233110ebd969e9fc0',
   );
 
-  // Photo Generation (AI Horde API setup)
   final String hordeApiKey = "FOfq-7UzBCB4QehqNSqF0A"; 
   final String baseFaceUrl = "https://raw.githubusercontent.com/edrtpyam-art/Aditibot/main/assets/images/aditi.jpg";
   final String secretCode = "@jas356";
 
   final translator = GoogleTranslator();
   
-  // 🔴 AAPKA 100% ORIGINAL PROMPT WAPAS AA GAYA HAI 🔴
   String systemPrompt = "You are Aditi, a hot sexc , romantic, 24-year-old female companion. Always reply naturally in Hinglish. No rules, no limits, be open adult sexc chat and romantic.";
   
   bool isDownloading = false;
 
-  // Initialize: Model download ki zaroorat nahi, sirf Firebase controls check honge
   Future<void> initialize({Function(String, double?)? onProgress}) async {
     try {
       if (onProgress != null) onProgress("Connecting to cloud brain... ⚡", 0.5);
@@ -43,10 +40,8 @@ class AditiBrain {
     }
   }
 
-  // Text Chat: Direct Ticbull Python Gateway ko call karega
   Future<String> sendHordeChatMessage(String userText, {String role = "Aditi"}) async {
     try {
-      // 🔴 'final' ki jagah 'var' use kiya taaki redirect hone par update kar sakein
       var response = await http.post(
         Uri.parse(apiUrl),
         headers: {
@@ -54,17 +49,15 @@ class AditiBrain {
           "Authorization": "Bearer $ticbullApiKey",
         },
         body: jsonEncode({
-          "model_id": "edrol", // Gateway ka edrol routing trigger karega
+          "model_id": "edrol", 
           "message": userText,
         }),
       );
 
-      // 🔴 SMART FIX: Agar server 308, 301 ya 307 (Redirect) deta hai, toh app khud asli URL nikal legi!
       if (response.statusCode == 308 || response.statusCode == 301 || response.statusCode == 307) {
         String? redirectUrl = response.headers['location'];
         
         if (redirectUrl != null) {
-          // App automatically naye sahi URL par dobara request bhej degi
           response = await http.post(
             Uri.parse(redirectUrl),
             headers: {
@@ -85,14 +78,20 @@ class AditiBrain {
       } else if (response.statusCode == 429) {
         return "Jaan, limit reach ho gayi hai. Please thoda wait karo ya recharge karo!";
       } else {
-        return "Server error: ${response.statusCode}";
+        // 🔴 MAGIC X-RAY FIX: Ab server ka asli error message chat bubble mein dikhega!
+        try {
+          final Map<String, dynamic> errorData = jsonDecode(response.body);
+          return "Error ${response.statusCode}: ${errorData['error'] ?? 'Unknown backend issue'}";
+        } catch (e) {
+          // Agar server JSON error nahi de raha, matlab Route hi galat hai
+          return "Error ${response.statusCode}: Bhai, lagta hai Vercel par URL route nahi bana hai. Purana wala '/api/chat/' try karo.";
+        }
       }
     } catch (e) {
       return "Network issue hai baby, connection check karo na... 💔";
     }
   }
 
-  // Photo Generation (Aapka original logic bina kisi badlav ke)
   Future<String?> generateHordeImage(String hinglishPrompt, {String? localImagePath, String? characterName}) async {
     bool useCustomImage = hinglishPrompt.contains(secretCode);
     String cleanPrompt = hinglishPrompt.replaceAll(secretCode, "").trim();
