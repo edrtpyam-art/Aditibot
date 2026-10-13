@@ -46,13 +46,13 @@ class ChatScreen extends StatefulWidget {
   _ChatScreenState createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
+class _ChatScreenState extends State<ChatScreen> {
   bool isSubscribed = true;
   int daysLeft = 0;
   
-  // 🔴 NAYA: Download State Variables
+  // NAYA: Download State Variables
   bool isLoading = true;
-  String downloadStatus = "Initializing AI Engine...";
+  String downloadStatus = "Connecting to AI Engine...";
   double downloadProgress = 0.0;
 
   final TextEditingController _msgController = TextEditingController();
@@ -64,21 +64,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   String currentCharacterName = "Aditi";
   String currentCharacterRole = "Assistant";
 
-  late AnimationController _emojiAnimController;
-
   @override
   void initState() {
     super.initState();
-    _emojiAnimController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
     _initializeApp();
   }
 
   @override
   void dispose() {
-    _emojiAnimController.dispose();
     _msgController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -87,7 +80,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   Future<void> _initializeApp() async {
     await _checkOfflineTimer();
     
-    // 🔴 NAYA: AI Model Download Initialization with Live Progress
     if (isSubscribed) {
       await _brain.initialize(
         onProgress: (status, progress) {
@@ -167,8 +159,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     String text = _msgController.text.trim();
     if (text.isEmpty && !messages.any((m) => m["isMe"] == true && m.containsKey("localImagePath"))) return;
 
-    _emojiAnimController.forward(from: 0.0);
-
     String? localImagePath;
     if (messages.isNotEmpty && messages.last["isMe"] == true && messages.last.containsKey("localImagePath")) {
       localImagePath = messages.last["localImagePath"];
@@ -214,7 +204,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           messages.add({"isMe": false, "text": aiResponse, "isImage": false});
         });
         _scrollToBottom();
-        _emojiAnimController.forward(from: 0.0);
       }
     }
   }
@@ -285,7 +274,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  // 🔴 NAYA: Professional Download & Loading Screen
+  // 🔴 UPDATED: Professional Loading Screen for Cloud Connection
   Widget _buildLoadingScreen() {
     return Scaffold(
       backgroundColor: const Color(0xFF131314),
@@ -338,9 +327,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               ),
               const SizedBox(height: 12),
               
-              // Warning Text
+              // 🔴 FIX: Updated Warning Text to reflect Cloud API usage
               const Text(
-                "First time setup. Please keep the app open.\nThis model runs 100% offline & private.",
+                "Connecting to secure premium server.\nPlease wait a moment.",
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white38, fontSize: 13, height: 1.4),
               ),
@@ -353,7 +342,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    // 🔴 NAYA: Agar download chal raha hai, toh premium loading screen dikhao
     if (isLoading) {
       return _buildLoadingScreen();
     }
