@@ -12,14 +12,14 @@ dependencies:
   dio: ^5.3.3                  # Downloading models ke liye
   path_provider: ^2.1.1        # Phone me save karne ke liye
   http: ^1.2.0                 # API calls ke liye
-  shared_preferences: ^2.2.2   # 👈 Offline Timer ke liye
-  url_launcher: ^6.2.1         # 👈 Cosmofeed Payment Link kholne ke liye
-  firebase_core: ^2.32.0       # 👈 Edrolai Firebase Connect karne ke liye
-  firebase_database: ^10.5.0   # 👈 Live Brain aur Rules Update ke liye
+  shared_preferences: ^2.2.2   # Offline Timer ke liye
+  url_launcher: ^6.2.1         # Cosmofeed Payment Link kholne ke liye
+  firebase_core: ^2.32.0       # Edrolai Firebase Connect karne ke liye
+  firebase_database: ^10.5.0   # Live Brain aur Rules Update ke liye
   image_picker: ^1.1.2         # Image pick karne ke liye
-  translator: any 
-  llama_cpp_dart: ^0.0.5
-  # 👈 Hinglish se English Translate karne ke liye (Image Gen)
+  translator: any              # Hinglish se English Translate karne ke liye (Image Gen)
+  
+  # Yahan se llama_cpp_dart hata diya gaya hai taaki GitHub crash na ho!
 
 dev_dependencies:
   flutter_test:
