@@ -6,7 +6,7 @@ import 'package:firebase_database/firebase_database.dart';
 
 class AditiBrain {
   // Master Ticbull Server URL & API Key
-  final String apiUrl = "https://ticbull.in/api/chat";
+  final String apiUrl = "https://ticbull.in/api/chat/";
   
   // Environment variable se lega, agar nahi mila toh fallback key use karega
   final String ticbullApiKey = const String.fromEnvironment(
