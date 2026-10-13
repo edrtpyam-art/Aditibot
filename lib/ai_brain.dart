@@ -5,7 +5,7 @@ import 'package:translator/translator.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 class AditiBrain {
-  // Exact Vercel route bina kisi trailing slash ke
+  // Exact Vercel route
   final String apiUrl = "https://ticbull.in/v1/zyxo";
   
   // Environment variable se lega, agar nahi mila toh fallback key use karega
@@ -42,18 +42,27 @@ class AditiBrain {
 
   Future<String> sendHordeChatMessage(String userText, {String role = "Aditi"}) async {
     try {
+      // 🔴 NAYA FORMAT: Aapke updated Ticbull backend ke hisaab se
+      var requestBody = jsonEncode({
+        "model": "edrol",
+        "messages": [
+          {
+            "role": "user",
+            "content": userText
+          }
+        ]
+      });
+
       var response = await http.post(
         Uri.parse(apiUrl),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer $ticbullApiKey",
         },
-        body: jsonEncode({
-          "model_id": "edrol", 
-          "message": userText,
-        }),
+        body: requestBody,
       );
 
+      // Smart Redirect (Agar Vercel slash / ya kuch aur redirect maange)
       if (response.statusCode == 308 || response.statusCode == 301 || response.statusCode == 307) {
         String? redirectUrl = response.headers['location'];
         
@@ -64,17 +73,18 @@ class AditiBrain {
               "Content-Type": "application/json",
               "Authorization": "Bearer $ticbullApiKey",
             },
-            body: jsonEncode({
-              "model_id": "edrol",
-              "message": userText,
-            }),
+            body: requestBody,
           );
         }
       }
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
-        return data["response"] ?? "Bolo jaan... ❤️";
+        
+        // Agar response {"response": "..."} hai ya OpenAI jaisa {"choices": ...} hai, dono handle kar lega
+        return data["response"] ?? 
+               (data["choices"] != null ? data["choices"][0]["message"]["content"] : "Bolo jaan... ❤️");
+               
       } else if (response.statusCode == 429) {
         return "Jaan, limit reach ho gayi hai. Please thoda wait karo ya recharge karo!";
       } else {
