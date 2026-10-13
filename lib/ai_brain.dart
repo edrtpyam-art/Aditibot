@@ -11,7 +11,7 @@ class AditiBrain {
   // Environment variable se lega, agar nahi mila toh fallback key use karega
   final String ticbullApiKey = const String.fromEnvironment(
     'TICBULL_API_KEY',
-    defaultValue: 'yxo-e15339c7cdbba0f5f0b4de1b2054617e',
+    defaultValue: 'yxo-app-7acd221d0722d89233110ebd969e9fc0',
   );
 
   // Photo Generation (AI Horde API setup)
