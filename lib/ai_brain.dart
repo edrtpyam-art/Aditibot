@@ -5,8 +5,8 @@ import 'package:translator/translator.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 class AditiBrain {
-  // Master Ticbull Server URL & API Key
-  final String apiUrl = "https://ticbull.in/api/chat/";
+  // 🔴 NAYA MASTER URL YAHAN HAI
+  final String apiUrl = "https://ticbull.in/v1/zyxo";
   
   // Environment variable se lega, agar nahi mila toh fallback key use karega
   final String ticbullApiKey = const String.fromEnvironment(
@@ -46,7 +46,8 @@ class AditiBrain {
   // Text Chat: Direct Ticbull Python Gateway ko call karega
   Future<String> sendHordeChatMessage(String userText, {String role = "Aditi"}) async {
     try {
-      final response = await http.post(
+      // 🔴 'final' ki jagah 'var' use kiya taaki redirect hone par update kar sakein
+      var response = await http.post(
         Uri.parse(apiUrl),
         headers: {
           "Content-Type": "application/json",
@@ -57,6 +58,26 @@ class AditiBrain {
           "message": userText,
         }),
       );
+
+      // 🔴 SMART FIX: Agar server 308, 301 ya 307 (Redirect) deta hai, toh app khud asli URL nikal legi!
+      if (response.statusCode == 308 || response.statusCode == 301 || response.statusCode == 307) {
+        String? redirectUrl = response.headers['location'];
+        
+        if (redirectUrl != null) {
+          // App automatically naye sahi URL par dobara request bhej degi
+          response = await http.post(
+            Uri.parse(redirectUrl),
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer $ticbullApiKey",
+            },
+            body: jsonEncode({
+              "model_id": "edrol",
+              "message": userText,
+            }),
+          );
+        }
+      }
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
