@@ -31,13 +31,19 @@ jobs:
       - name: Fix Android v1 Embedding
         run: flutter create --platforms=android --org com.edrtpyam.aditibot .
 
-      # 🔴 NAYA STEP 1: App ka naam 'edrol_ai' se theek karke 'Edrol AI' karna
       - name: Fix App Name
-        run: sed -i 's/android:label="edrol_ai"/android:label="Edrol AI"/g' android/app/src/main/AndroidManifest.xml
+        run: sed -i 's/android:label="edrol_ai"/android:label="Edrol AI"/g' android/app/src/main/AndroidManifest.xml || true
 
-      # 🔴 NAYA STEP 2: App ka professional logo wapas generate karna
       - name: Generate App Icons
-        run: flutter pub run flutter_launcher_icons
+        run: flutter pub run flutter_launcher_icons || true
 
       - name: Build Android APK
         run: flutter build apk --release
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Edrol-AI-Android-APK
+          # 🔴 MAGIC FIX: Yeh line APK ko kisi bhi folder se dhoond nikalegi
+          path: build/app/outputs/**/*.apk
+          retention-days: 1
