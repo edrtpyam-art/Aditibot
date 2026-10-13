@@ -28,8 +28,9 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
-      # C++, NDK, aur CMake waale saare low-RAM hacks hata diye gaye hain
-      # Kyunki ab heavy processing aapke Ticbull cloud server par ho rahi hai
+      # 🔴 YAHAN FIX HAI: Yeh line aapke purane Android structure ko automatically update kar degi
+      - name: Fix Android v1 Embedding
+        run: flutter create --platforms=android --org com.edrtpyam.aditibot .
 
       - name: Build Android APK
         run: flutter build apk --release
