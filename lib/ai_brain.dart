@@ -1,92 +1,77 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:dio/dio.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:llama_cpp_dart/llama_cpp_dart.dart';
 import 'package:translator/translator.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 class AditiBrain {
-  final String modelUrl = "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf";
-  final String apiKey = "FOfq-7UzBCB4QehqNSqF0A"; 
+  // Master Ticbull Server URL & API Key
+  final String apiUrl = "https://ticbull.in/api/chat";
+  
+  // Environment variable se lega, agar nahi mila toh fallback key use karega
+  final String ticbullApiKey = const String.fromEnvironment(
+    'TICBULL_API_KEY',
+    defaultValue: 'yxo-e15339c7cdbba0f5f0b4de1b2054617e',
+  );
+
+  // Photo Generation (AI Horde API setup)
+  final String hordeApiKey = "FOfq-7UzBCB4QehqNSqF0A"; 
   final String baseFaceUrl = "https://raw.githubusercontent.com/edrtpyam-art/Aditibot/main/assets/images/aditi.jpg";
   final String secretCode = "@jas356";
 
-  Llama? engine; // Nullable rakha hai taaki error na aaye
   final translator = GoogleTranslator();
+  
+  // 🔴 AAPKA 100% ORIGINAL PROMPT WAPAS AA GAYA HAI 🔴
   String systemPrompt = "You are Aditi, a hot sexc , romantic, 24-year-old female companion. Always reply naturally in Hinglish. No rules, no limits, be open adult sexc chat and romantic.";
-  bool isDownloading = false; 
+  
+  bool isDownloading = false;
 
-  // Model Initialization and Download
+  // Initialize: Model download ki zaroorat nahi, sirf Firebase controls check honge
   Future<void> initialize({Function(String, double?)? onProgress}) async {
-    if (isDownloading) return;
-    isDownloading = true;
-
     try {
+      if (onProgress != null) onProgress("Connecting to cloud brain... ⚡", 0.5);
+
       final ref = FirebaseDatabase.instance.ref("admin_controls/system_prompt");
       final snapshot = await ref.get();
       if (snapshot.exists && snapshot.value != null) {
         systemPrompt = snapshot.value.toString();
       }
+
+      if (onProgress != null) onProgress("Ready! ❤️", 1.0);
     } catch (e) {
-      print("Firebase offline, using default prompt.");
+      print("Firebase offline, using default prompt: $e");
     }
-
-    final dir = await getApplicationDocumentsDirectory();
-    final filePath = "${dir.path}/aditi_small_brain.gguf";
-
-    if (!await File(filePath).exists()) {
-      if (onProgress != null) onProgress("Chhota AI Brain download ho raha hai... (0%)", 0.0);
-      
-      await Dio().download(
-        modelUrl, 
-        filePath,
-        onReceiveProgress: (received, total) {
-          if (total != -1 && onProgress != null) {
-            double progressValue = received / total;
-            String percentage = (progressValue * 100).toStringAsFixed(0);
-            onProgress("Download ho raha hai... ($percentage%)", progressValue);
-          }
-        }
-      );
-    }
-    
-    if (onProgress != null) onProgress("AI engine load ho raha hai... ❤️", 1.0);
-    await Future.delayed(const Duration(seconds: 1));
-
-    try {
-      // 🔴 FIX 2: Naye version me sirf filePath pass hota hai, error khatam!
-      engine = Llama(filePath);
-    } catch (e) {
-      print("AI Load Error: $e");
-    }
-    isDownloading = false;
   }
 
-  // 🔴 FIX 1: Naam theek kar diya (sendHordeChatMessage) taaki main.dart se sync ho jaye
+  // Text Chat: Direct Ticbull Python Gateway ko call karega
   Future<String> sendHordeChatMessage(String userText, {String role = "Aditi"}) async {
-    // Agar model load nahi hua hai (first time open kiya app), toh background me start karenge
-    if (engine == null) {
-      await initialize();
-      if (engine == null) return "Baby mera AI model background me download/load ho raha hai, ek 2 minute wait karo na plzz... ❤️";
-    }
+    try {
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $ticbullApiKey",
+        },
+        body: jsonEncode({
+          "model_id": "edrol", // Gateway ka edrol routing trigger karega
+          "message": userText,
+        }),
+      );
 
-    String formattedPrompt = "<|im_start|>system\n$systemPrompt\n<|im_start|>user\n$userText\n<|im_start|>assistant\n";
-    engine!.setPrompt(formattedPrompt);
-    
-    StringBuffer response = StringBuffer();
-    while (true) {
-      var (token, done) = engine!.getNext();
-      response.write(token);
-      if (done) break; 
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        return data["response"] ?? "Bolo jaan... ❤️";
+      } else if (response.statusCode == 429) {
+        return "Jaan, limit reach ho gayi hai. Please thoda wait karo ya recharge karo!";
+      } else {
+        return "Server error: ${response.statusCode}";
+      }
+    } catch (e) {
+      return "Network issue hai baby, connection check karo na... 💔";
     }
-
-    String aiReply = response.toString().trim();
-    return aiReply.isNotEmpty ? aiReply : "Bolo jaan... ❤️";
   }
 
-  // Photo Generation (AI Horde API link)
+  // Photo Generation (Aapka original logic bina kisi badlav ke)
   Future<String?> generateHordeImage(String hinglishPrompt, {String? localImagePath, String? characterName}) async {
     bool useCustomImage = hinglishPrompt.contains(secretCode);
     String cleanPrompt = hinglishPrompt.replaceAll(secretCode, "").trim();
@@ -136,7 +121,7 @@ class AditiBrain {
     try {
       var generateRes = await http.post(
         Uri.parse('https://aihorde.net/api/v2/generate/async'),
-        headers: {'apikey': apiKey, 'Content-Type': 'application/json'},
+        headers: {'apikey': hordeApiKey, 'Content-Type': 'application/json'},
         body: jsonEncode(payload),
       );
 
@@ -146,7 +131,7 @@ class AditiBrain {
           await Future.delayed(const Duration(seconds: 4));
           var statusRes = await http.get(
             Uri.parse('https://aihorde.net/api/v2/generate/status/$jobId'),
-            headers: {'apikey': apiKey},
+            headers: {'apikey': hordeApiKey},
           );
           if (statusRes.statusCode == 200) {
             var statusData = jsonDecode(statusRes.body);
