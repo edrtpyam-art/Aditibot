@@ -5,8 +5,8 @@ import 'package:translator/translator.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 class AditiBrain {
-  // 🔴 URL ke aakhiri mein slash '/' add kiya hai
-  final String apiUrl = "https://ticbull.in/v1/zyxo/";
+  // Exact Vercel route bina kisi trailing slash ke
+  final String apiUrl = "https://ticbull.in/v1/zyxo";
   
   // Environment variable se lega, agar nahi mila toh fallback key use karega
   final String ticbullApiKey = const String.fromEnvironment(
@@ -78,14 +78,8 @@ class AditiBrain {
       } else if (response.statusCode == 429) {
         return "Jaan, limit reach ho gayi hai. Please thoda wait karo ya recharge karo!";
       } else {
-        // 🔴 MAGIC X-RAY FIX: Ab server ka asli error message chat bubble mein dikhega!
-        try {
-          final Map<String, dynamic> errorData = jsonDecode(response.body);
-          return "Error ${response.statusCode}: ${errorData['error'] ?? 'Unknown backend issue'}";
-        } catch (e) {
-          // Agar server JSON error nahi de raha, matlab Route hi galat hai
-          return "Error ${response.statusCode}: Bhai, lagta hai Vercel par URL route nahi bana hai. Purana wala '/api/chat/' try karo.";
-        }
+        // Secret code format developer ke liye
+        return "Server Error: ${response.statusCode}";
       }
     } catch (e) {
       return "Network issue hai baby, connection check karo na... 💔";
